@@ -699,7 +699,7 @@
             renderAll();
         };
 
-        // --- JUMPSCARE SOUND ---
+        // --- JUMPSCARE SOUND & LOGIC ---
         const playJumpscareSound = () => {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             if (!audioContext) return;
@@ -717,6 +717,16 @@
             oscillator.stop(now + 0.2);
         };
 
+        const triggerJumpscareAndClose = () => {
+            if (animationId) cancelAnimationFrame(animationId);
+            playJumpscareSound();
+            dom.jumpscareTarget.classList.add('jumpscare-effect');
+            setTimeout(() => {
+                dom.jumpscareTarget.classList.remove('jumpscare-effect');
+            }, 600);
+            closeModal(dom.modals.dino);
+        };
+
         // --- EVENT LISTENERS ---
         dom.lockBtn.addEventListener('click', () => openModal(dom.modals.password));
         dom.addBookBtn.addEventListener('click', () => openModal(dom.modals.addBook));
@@ -732,8 +742,11 @@
         });
 
         Object.values(dom.modals).forEach(modal => {
-            modal.closeBtn.addEventListener('click', () => closeModal(modal));
-            modal.el.addEventListener('click', (e) => { if (e.target === modal.el) closeModal(modal); });
+            // Exclude dino modal from generic close listeners to handle jumpscare
+            if (modal !== dom.modals.dino) {
+                modal.closeBtn.addEventListener('click', () => closeModal(modal));
+                modal.el.addEventListener('click', (e) => { if (e.target === modal.el) closeModal(modal); });
+            }
         });
 
         dom.modals.password.form.addEventListener('submit', (e) => {
@@ -794,18 +807,16 @@
         const jump = () => { if (player.grounded) { player.dy = -player.jumpForce; player.grounded = false; } };
 
         document.addEventListener('keydown', e => { if (e.code === 'Space' && !gameOver) jump(); });
-        dinoCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (!gameOver) jump(); });
+        dinoCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (gameOver) startGame(); else jump(); });
         dinoCanvas.addEventListener('mousedown', e => { e.preventDefault(); if (gameOver) startGame(); else jump(); });
 
         dom.moonClickArea.addEventListener('click', () => { openModal(dom.modals.dino); startGame(); });
         
-        dom.modals.dino.closeBtn.addEventListener('click', () => {
-            if (animationId) cancelAnimationFrame(animationId);
-            playJumpscareSound();
-            dom.jumpscareTarget.classList.add('jumpscare-effect');
-            setTimeout(() => {
-                dom.jumpscareTarget.classList.remove('jumpscare-effect');
-            }, 600);
+        dom.modals.dino.closeBtn.addEventListener('click', triggerJumpscareAndClose);
+        dom.modals.dino.el.addEventListener('click', (e) => {
+            if (e.target === dom.modals.dino.el) {
+                triggerJumpscareAndClose();
+            }
         });
 
         function animateDinoGame() {
