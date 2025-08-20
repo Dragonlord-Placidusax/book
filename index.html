@@ -146,6 +146,13 @@
                     <button id="addBookBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105">
                         Add Book
                     </button>
+                    <!-- New Button to Add All Books -->
+                    <div class="mt-4">
+                        <button id="addBulkBooksBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105" disabled>
+                            Add All Challenge Books
+                        </button>
+                        <div id="addBulkStatus" class="text-rose-400 text-sm mt-2 hidden"></div>
+                    </div>
                 </div>
             </section>
             
@@ -170,7 +177,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase-related global variables that will be provided by the runtime environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -200,6 +207,8 @@
         const newBookAuthor = document.getElementById('newBookAuthor');
         const addBookBtn = document.getElementById('addBookBtn');
         const addBookError = document.getElementById('addBookError');
+        const addBulkBooksBtn = document.getElementById('addBulkBooksBtn');
+        const addBulkStatus = document.getElementById('addBulkStatus');
         const summaryModal = document.getElementById('summaryModal');
         const summaryContent = document.getElementById('summaryContent');
         const closeModalBtn = document.getElementById('closeModalBtn');
@@ -226,8 +235,15 @@
                         userId = user.uid;
                         // Start listening to the database for real-time updates
                         listenToBooks();
+                        // Enable the bulk add button once authenticated
+                        if (addBulkBooksBtn) {
+                            addBulkBooksBtn.disabled = false;
+                        }
                     } else {
-                        // User is signed out, handle this case if needed
+                        // User is signed out, disable the button
+                        if (addBulkBooksBtn) {
+                            addBulkBooksBtn.disabled = true;
+                        }
                     }
                 });
             } catch (error) {
@@ -372,6 +388,120 @@
                 return "An error occurred. Please try again later.";
             }
         }
+        
+        const booksToAdd = [
+            { title: 'Powerless', author: 'Lauren Roberts', completed: false },
+            { title: 'Reckless', author: 'Lauren Roberts', completed: false },
+            { title: 'Fearless', author: 'Lauren Roberts', completed: false },
+            { title: 'Fourth Wing', author: 'Rebecca Yarros', completed: false },
+            { title: 'Iron Flame', author: 'Rebecca Yarros', completed: false },
+            { title: 'Onyx Storm', author: 'Rebecca Yarros', completed: false },
+            { title: 'A Court of Thorns and Roses', author: 'Sarah J. Maas', completed: false },
+            { title: 'A Court of Mist and Fury', author: 'Sarah J. Maas', completed: false },
+            { title: 'A Court of Wings and Ruin', author: 'Sarah J. Maas', completed: false },
+            { title: 'A Court of Frost and Starlight', author: 'Sarah J. Maas', completed: false },
+            { title: 'A Court of Silver Flames', author: 'Sarah J. Maas', completed: false },
+            { title: 'The Cruel Prince', author: 'Holly Black', completed: false },
+            { title: 'The Queen of Nothing', author: 'Holly Black', completed: false },
+            { title: 'The Wicked King', author: 'Holly Black', completed: false },
+            { title: 'How the King of Elfhame', author: 'Holly Black', completed: false },
+            { title: 'Better Than the Movies', author: 'Lynn Painter', completed: false },
+            { title: 'Shatter Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Destroy Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Unravel Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Fracture Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Ignite Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Restore Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Shadow Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Defy Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Reveal Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Imagine Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Believe Me', author: 'Tahereh Mafi', completed: false },
+            { title: 'Twisted Love', author: 'Ana Huang', completed: false },
+            { title: 'Twisted Games', author: 'Ana Huang', completed: false },
+            { title: 'Twisted Hate', author: 'Ana Huang', completed: false },
+            { title: 'Twisted Lies', author: 'Ana Huang', completed: false },
+            { title: 'King of Wrath', author: 'Ana Huang', completed: false },
+            { title: 'King of Pride', author: 'Ana Huang', completed: false },
+            { title: 'King of Greed', author: 'Ana Huang', completed: false },
+            { title: 'King of Sloth', author: 'Ana Huang', completed: false },
+            { title: 'King of Envy', author: 'Ana Huang', completed: false },
+            { title: 'King of Gluttony', author: 'Ana Huang', completed: false },
+            { title: 'Haunting Adeline', author: 'H.D. Carlton', completed: false },
+            { title: 'Hunting Adeline', author: 'H.D. Carlton', completed: false },
+            { title: 'Toxic', author: 'Nicole Blanchard', completed: false },
+            { title: 'How to Kill Men and Get Away With It', author: 'Katy Brent', completed: false },
+            { title: 'I Bet You’d Look Good in a Coffin', author: 'Mandy McHugh', completed: false },
+            { title: 'How to Kill Your Family', author: 'Bella Mackie', completed: false },
+            { title: 'The Murder After the Night Before', author: 'Sarah Pinborough', completed: false },
+            { title: 'How to Kill a Guy in Ten Ways', author: 'Tanya Blackwood', completed: false },
+            { title: 'The Best Way to Bury Your Husband', author: 'Chris Collett', completed: false },
+            { title: 'Hooked', author: 'Emily McIntire', completed: false },
+            { title: 'A Good Girl\'s Guide to Murder', author: 'Holly Jackson', completed: false },
+            { title: 'Good Girl, Bad Blood', author: 'Holly Jackson', completed: false },
+            { title: 'As Good As Dead', author: 'Holly Jackson', completed: false },
+            { title: 'If He Had Been with Me', author: 'Laura Nowlin', completed: false },
+            { title: 'The Silent Patient', author: 'Alex Michaelides', completed: false },
+            { title: 'If Only I Had Told Her', author: 'Laura Nowlin', completed: false },
+            { title: 'Tease Me Once', author: 'R.S. Grey', completed: false },
+            { title: 'I\'ll Kiss You Twice', author: 'Lexie Sy', completed: false },
+            { title: 'Then You\'re Mine', author: 'R.S. Grey', completed: false },
+            { title: 'The Perfect Marriage', author: 'Jeneva Rose', completed: false },
+            { title: 'Never lie', author: 'Freida McFadden', completed: false },
+            { title: 'Bad men', author: 'Julie Mae', completed: false },
+            { title: 'Sweetpea', author: 'C.J. Skuse', completed: false },
+            { title: 'In bloom', author: 'Matthew J. Hall', completed: false },
+            { title: 'Dead head', author: 'Gabe Cole', completed: false },
+            { title: 'Thorn in my side', author: 'Jennifer Ann', completed: false },
+            { title: 'The bad seeds', author: 'J.P. Carter', completed: false },
+            { title: 'Trust Me When I Lie', author: 'Freida McFadden', completed: false },
+            { title: 'Love Letters to a Serial Killer', author: 'Lydia Peelle', completed: false },
+        ];
+
+
+        /**
+         * Adds the entire list of books to the Firestore database.
+         */
+        addBulkBooksBtn.addEventListener('click', async () => {
+            if (!db) {
+                addBulkStatus.textContent = "Database not ready. Please wait and try again.";
+                addBulkStatus.classList.remove('hidden');
+                return;
+            }
+
+            addBulkStatus.classList.remove('hidden', 'text-green-400');
+            addBulkStatus.classList.add('text-rose-400');
+            addBulkStatus.innerHTML = `<div class="flex items-center justify-center"><div class="loading-spinner mr-2"></div>Adding books...</div>`;
+            addBulkBooksBtn.disabled = true;
+
+            try {
+                let existingBooks = [];
+                const querySnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`));
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    existingBooks.push({ title: data.title, author: data.author });
+                });
+
+                for (const book of booksToAdd) {
+                    const isDuplicate = existingBooks.some(existingBook => 
+                        existingBook.title === book.title && existingBook.author === book.author
+                    );
+
+                    if (!isDuplicate) {
+                        await addDoc(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`), book);
+                    }
+                }
+                addBulkStatus.textContent = "All books added successfully!";
+                addBulkStatus.classList.remove('text-rose-400');
+                addBulkStatus.classList.add('text-green-400');
+            } catch (e) {
+                console.error("Error adding bulk documents: ", e);
+                addBulkStatus.textContent = "Failed to add books. Please try again.";
+            } finally {
+                addBulkBooksBtn.disabled = false;
+            }
+        });
+
 
         // --- Event Handlers ---
 
@@ -512,11 +642,9 @@
             this.opacity = Math.random();
             this.opacitySpeed = Math.random() * 0.02 - 0.01;
 
-            // Apply wine-red color logic for the glow
-            if (Math.random() < 0.3) { // 30% chance for a wine-red glow
-                this.color = 'hsl(340, 80%, 70%)'; // A wine-red hue
+            if (Math.random() < 0.3) {
+                this.color = 'hsl(340, 80%, 70%)';
             } else {
-                // The majority of stars have a classic white/blueish glow
                 this.color = 'hsl(210, 100%, 90%)';
             }
 
