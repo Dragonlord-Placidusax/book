@@ -235,10 +235,6 @@
                         userId = user.uid;
                         // Start listening to the database for real-time updates
                         listenToBooks();
-                        // Enable the bulk add button once authenticated
-                        if (addBulkBooksBtn) {
-                            addBulkBooksBtn.disabled = false;
-                        }
                     } else {
                         // User is signed out, disable the button
                         if (addBulkBooksBtn) {
@@ -261,6 +257,11 @@
                 });
                 renderBooks(books);
                 updateProgressBar(books);
+
+                // Enable the bulk add button once the initial data load is complete
+                if (addBulkBooksBtn) {
+                    addBulkBooksBtn.disabled = false;
+                }
             });
         }
 
