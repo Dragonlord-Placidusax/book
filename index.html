@@ -55,7 +55,6 @@
             pointer-events: none; /* Make canvas non-interactive */
         }
         #firefly-canvas-bg { z-index: -1; }
-        /* Updated z-index to bring foreground fireflies in front of content */
         #firefly-canvas-fg { z-index: 21; } 
 
         .modal {
@@ -225,12 +224,16 @@
         </div>
     </div>
     <div id="save-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative transform scale-95">
-            <button id="close-save-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-xl font-bold text-rose-400 mb-2">Copy Your Updated Data</h3>
-            <p class="text-gray-400 mb-4">Replace the old book data in your `index.html` file with this code.</p>
-            <pre class="bg-gray-900 text-sm text-yellow-300 p-4 rounded-md overflow-x-auto"><code id="data-output"></code></pre>
-            <button id="copy-data-btn" class="mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Copy to Clipboard</button>
+        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative transform scale-95 flex flex-col max-h-[90vh]">
+            <div class="flex-shrink-0">
+                <button id="close-save-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                <h3 class="text-xl font-bold text-rose-400 mb-2">Copy Your Updated Data</h3>
+                <p class="text-gray-400 mb-4">Replace the old book data in your `index.html` file with this code.</p>
+            </div>
+            <pre class="flex-grow bg-gray-900 text-sm text-yellow-300 p-4 rounded-md overflow-auto"><code id="data-output"></code></pre>
+            <div class="flex-shrink-0">
+                <button id="copy-data-btn" class="mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Copy to Clipboard</button>
+            </div>
         </div>
     </div>
     <!-- Dino Game Modal -->
@@ -320,6 +323,7 @@
         // --- GLOBAL STATE ---
         let isUnlocked = false;
         let currentProgress = 0;
+        const mouse = { x: null, y: null, repelRadius: 100 };
 
         // --- DOM ELEMENTS ---
         const dom = {
@@ -612,16 +616,52 @@
                 this.x = Math.random() * window.innerWidth;
                 this.y = Math.random() * window.innerHeight;
                 this.size = isForeground ? Math.random() * 2.5 + 1.5 : Math.random() * 2 + 1;
-                this.speedX = (Math.random() - 0.5) * (isForeground ? 0.7 : 0.4);
-                this.speedY = (Math.random() - 0.5) * (isForeground ? 0.7 : 0.4);
+                this.baseSpeedX = (Math.random() - 0.5) * (isForeground ? 0.4 : 0.2); // Slower speeds
+                this.baseSpeedY = (Math.random() - 0.5) * (isForeground ? 0.4 : 0.2); // Slower speeds
+                this.speedX = this.baseSpeedX;
+                this.speedY = this.baseSpeedY;
                 this.trail = [];
                 this.trailLength = Math.floor(Math.random() * 12) + 6;
             }
+            reset() {
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                // Reset to a position off-screen to fly in smoothly
+                if (Math.random() > 0.5) {
+                    this.x = this.speedX > 0 ? -10 : window.innerWidth + 10;
+                } else {
+                    this.y = this.speedY > 0 ? -10 : window.innerHeight + 10;
+                }
+            }
             update() {
+                // Repel from mouse
+                if(mouse.x && mouse.y) {
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < mouse.repelRadius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (mouse.repelRadius - distance) / mouse.repelRadius;
+                        const directionX = forceDirectionX * force * 2;
+                        const directionY = forceDirectionY * force * 2;
+                        this.speedX += directionX;
+                        this.speedY += directionY;
+                    }
+                }
+
+                // Apply friction and return to base speed
+                this.speedX += (this.baseSpeedX - this.speedX) * 0.01;
+                this.speedY += (this.baseSpeedY - this.speedY) * 0.01;
+                
                 this.x += this.speedX;
                 this.y += this.speedY;
-                if (this.x < 0 || this.x > window.innerWidth) this.speedX *= -1;
-                if (this.y < 0 || this.y > window.innerHeight) this.speedY *= -1;
+
+                // Reset firefly if it goes too far off-screen instead of bouncing
+                if (this.x < -20 || this.x > window.innerWidth + 20 || this.y < -20 || this.y > window.innerHeight + 20) {
+                    this.reset();
+                }
+                
                 this.trail.push({ x: this.x, y: this.y, size: this.size });
                 if (this.trail.length > this.trailLength) this.trail.shift();
             }
@@ -658,7 +698,7 @@
             requestAnimationFrame(animateFireflies);
         };
 
-        // --- INITIAL RENDER ---
+        // --- INITIAL RENDER & MOUSE TRACKING ---
         document.addEventListener('DOMContentLoaded', () => {
             renderAll();
             setupCanvases();
@@ -668,8 +708,15 @@
                 setupCanvases();
                 initFireflies();
             });
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.x;
+                mouse.y = e.y;
+            });
+            window.addEventListener('mouseout', () => {
+                mouse.x = null;
+                mouse.y = null;
+            });
         });
     </script>
-    
 </body>
 </html>
