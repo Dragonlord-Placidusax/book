@@ -148,8 +148,10 @@
                     </button>
                     <!-- New Button to Add All Books -->
                     <div class="mt-4">
-                        <button id="addBulkBooksBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105" disabled>
-                            Add All Challenge Books
+                        <button id="addBulkBooksBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg transition-colors transform hover:scale-105" disabled>
+                            <span id="addBulkBtnText" class="flex items-center justify-center">
+                                <span class="loading-spinner mr-2" id="addBulkSpinner"></span> Connecting...
+                            </span>
                         </button>
                         <div id="addBulkStatus" class="text-rose-400 text-sm mt-2 hidden"></div>
                     </div>
@@ -209,6 +211,8 @@
         const addBookError = document.getElementById('addBookError');
         const addBulkBooksBtn = document.getElementById('addBulkBooksBtn');
         const addBulkStatus = document.getElementById('addBulkStatus');
+        const addBulkBtnText = document.getElementById('addBulkBtnText');
+        const addBulkSpinner = document.getElementById('addBulkSpinner');
         const summaryModal = document.getElementById('summaryModal');
         const summaryContent = document.getElementById('summaryContent');
         const closeModalBtn = document.getElementById('closeModalBtn');
@@ -237,15 +241,29 @@
                         listenToBooks();
                     } else {
                         // User is signed out, disable the button
-                        if (addBulkBooksBtn) {
-                            addBulkBooksBtn.disabled = true;
-                        }
+                        updateBulkAddButtonState(false);
                     }
                 });
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
+                updateBulkAddButtonState(false);
+                addBulkStatus.textContent = "Connection failed. Please check your network and try again.";
+                addBulkStatus.classList.remove('hidden');
             }
         }
+        
+        function updateBulkAddButtonState(isReady) {
+            if (isReady) {
+                addBulkBooksBtn.disabled = false;
+                addBulkBooksBtn.classList.add('cursor-pointer', 'hover:bg-rose-700');
+                addBulkBtnText.innerHTML = `Add All Challenge Books`;
+            } else {
+                addBulkBooksBtn.disabled = true;
+                addBulkBooksBtn.classList.remove('cursor-pointer', 'hover:bg-rose-700');
+                addBulkBtnText.innerHTML = `<span class="loading-spinner mr-2"></span> Connecting...`;
+            }
+        }
+
 
         // Real-time listener for the books collection
         function listenToBooks() {
@@ -259,9 +277,7 @@
                 updateProgressBar(books);
 
                 // Enable the bulk add button once the initial data load is complete
-                if (addBulkBooksBtn) {
-                    addBulkBooksBtn.disabled = false;
-                }
+                updateBulkAddButtonState(true);
             });
         }
 
@@ -464,12 +480,10 @@
          * Adds the entire list of books to the Firestore database.
          */
         addBulkBooksBtn.addEventListener('click', async () => {
-            if (!db) {
-                addBulkStatus.textContent = "Database not ready. Please wait and try again.";
-                addBulkStatus.classList.remove('hidden');
-                return;
+            if (!db || addBulkBooksBtn.disabled) {
+                return; // Exit if the database isn't ready or the button is disabled
             }
-
+            
             addBulkStatus.classList.remove('hidden', 'text-green-400');
             addBulkStatus.classList.add('text-rose-400');
             addBulkStatus.innerHTML = `<div class="flex items-center justify-center"><div class="loading-spinner mr-2"></div>Adding books...</div>`;
