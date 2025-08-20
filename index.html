@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Reading Challenge</title>
+    <!-- Tailwind CSS CDN for modern, responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #111827;
+            background-image: radial-gradient(at 20% 50%, #252844 0%, transparent 50%), 
+                              radial-gradient(at 80% 0%, #1a2233 0%, transparent 50%),
+                              radial-gradient(at 50% 100%, #15162a 0%, transparent 50%);
+            overflow-x: hidden;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 4px;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* The canvas will be positioned behind all content */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Progress Bar Animation --- */
+        .progress-shimmer {
+            background-image: linear-gradient(
+                to right,
+                #be123c 0%,
+                #f43f5e 20%,
+                #be123c 40%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-[#111827]">
+
+    <!-- The canvas element for our animated background -->
+    <canvas id="starfieldCanvas"></canvas>
+
+    <!-- New flex container to ensure the main content is perfectly centered -->
+    <div class="min-h-screen flex items-center justify-center p-4 md:p-8">
+        <div class="w-full max-w-4xl bg-[#1f2937] rounded-3xl shadow-2xl p-6 md:p-10 border border-[#2d3748] relative z-10">
+
+            <!-- Title and Description -->
+            <header class="text-center mb-8 md:mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">The Reading Challenge</h1>
+                <p class="text-lg text-gray-400">Track how your soon to be bf is dooin</p>
+            </header>
+
+            <!-- Main Progress Bar Section -->
+            <section class="mb-8 md:mb-12">
+                <h2 class="text-2xl font-semibold text-gray-300 mb-4">My Progress</h2>
+                <div class="w-full h-8 bg-[#374151] rounded-full overflow-hidden shadow-inner">
+                    <div id="progressBar" class="h-full bg-rose-500 transition-all duration-500 ease-in-out progress-shimmer" style="width: 0%;"></div>
+                </div>
+                <p id="progressText" class="text-center text-gray-400 mt-2 font-medium">0% complete</p>
+            </section>
+
+            <!-- Book Lists Section -->
+            <section class="grid md:grid-cols-2 gap-6 md:gap-8 mb-8">
+                <!-- To Read List -->
+                <div class="bg-[#2d3748] p-6 rounded-2xl border border-[#374151] shadow-lg">
+                    <h3 class="text-xl font-semibold text-gray-300 mb-4">Books to Read</h3>
+                    <ul id="booksToReadList" class="space-y-3 overflow-y-auto max-h-72 pr-2">
+                        <li class="text-gray-500 text-center py-4">Loading books...</li>
+                    </ul>
+                </div>
+
+                <!-- Completed List -->
+                <div class="bg-rose-900 bg-opacity-20 p-6 rounded-2xl border border-rose-800 shadow-lg">
+                    <h3 class="text-xl font-semibold text-gray-300 mb-4">Completed Books</h3>
+                    <ul id="completedBooksList" class="space-y-3 overflow-y-auto max-h-72 pr-2">
+                        <li class="text-gray-500 text-center py-4">No books completed.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Admin Panel for adding books -->
+            <section class="mt-8 pt-6 border-t border-[#374151]">
+                <h2 class="text-2xl font-semibold text-gray-300 mb-4">Admin Panel</h2>
+                <div id="passwordForm">
+                    <p class="text-gray-400 mb-4">To add books, please enter the password.</p>
+                    <div class="relative w-full flex items-center mb-4">
+                        <input type="password" id="passwordInput" placeholder="Enter password" class="w-full px-4 py-2 pr-10 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                        <button type="button" id="togglePasswordBtn" class="absolute right-3 text-gray-400 hover:text-gray-200 transition-colors">
+                            <!-- Eye open icon -->
+                            <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <!-- Eye closed icon (initially hidden) -->
+                            <svg id="eye-closed" class="h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 1.258 0 2.483.21 3.65.619M21 12c-1.274 4.057-5.064 7-9.542 7-1.258 0-2.483-.21-3.65-.619m-4.469-8.75l11.188 11.188" />
+                            </svg>
+                        </button>
+                    </div>
+                    <button id="passwordSubmitBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105">
+                        Unlock
+                    </button>
+                </div>
+                <div id="addBookForm" class="hidden">
+                    <p class="text-gray-400 mb-4">Welcome! Add a new book to the list.</p>
+                    <input type="text" id="newBookTitle" placeholder="Book Title" class="w-full px-4 py-2 mb-2 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                    <input type="text" id="newBookAuthor" placeholder="Author (optional)" class="w-full px-4 py-2 mb-4 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
+                    <div id="addBookError" class="text-red-400 text-sm mt-2 hidden">Please enter a book title!</div>
+                    <button id="addBookBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105">
+                        Add Book
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Modal for Book Summary -->
+            <div id="summaryModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 overflow-y-auto h-full w-full">
+                <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-2xl bg-[#1f2937] border-[#2d3748]">
+                    <div class="mt-3 text-center">
+                        <h3 class="text-lg leading-6 font-medium text-white mb-4">Book Summary</h3>
+                        <div id="summaryContent" class="text-sm text-gray-400 text-left"></div>
+                        <div class="mt-4">
+                            <button id="closeModalBtn" class="py-2 px-4 bg-gray-700 text-gray-200 font-bold rounded-lg hover:bg-gray-600 transition-colors">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase-related global variables that will be provided by the runtime environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Firebase Initialization ---
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        const ADMIN_PASSWORD = "Shanmukhaiscute"; 
+
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const booksToReadList = document.getElementById('booksToReadList');
+        const completedBooksList = document.getElementById('completedBooksList');
+        const passwordInput = document.getElementById('passwordInput');
+        const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+        const eyeOpenIcon = document.getElementById('eye-open');
+        const eyeClosedIcon = document.getElementById('eye-closed');
+        const passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
+        const passwordForm = document.getElementById('passwordForm');
+        const addBookForm = document.getElementById('addBookForm');
+        const newBookTitle = document.getElementById('newBookTitle');
+        const newBookAuthor = document.getElementById('newBookAuthor');
+        const addBookBtn = document.getElementById('addBookBtn');
+        const addBookError = document.getElementById('addBookError');
+        const summaryModal = document.getElementById('summaryModal');
+        const summaryContent = document.getElementById('summaryContent');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=';
+        const API_KEY = "";
+
+        // Function to set up Firebase and listeners
+        async function setupFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Authenticate the user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        // Start listening to the database for real-time updates
+                        listenToBooks();
+                    } else {
+                        // User is signed out, handle this case if needed
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+            }
+        }
+
+        // Real-time listener for the books collection
+        function listenToBooks() {
+            const booksCollectionRef = collection(db, `artifacts/${appId}/public/data/reading_challenge_books`);
+            onSnapshot(booksCollectionRef, (querySnapshot) => {
+                const books = [];
+                querySnapshot.forEach((doc) => {
+                    books.push({ id: doc.id, ...doc.data() });
+                });
+                renderBooks(books);
+                updateProgressBar(books);
+            });
+        }
+
+        /**
+         * Renders the books to the 'to read' and 'completed' lists.
+         */
+        function renderBooks(books) {
+            booksToReadList.innerHTML = '';
+            completedBooksList.innerHTML = '';
+
+            const booksToRead = books.filter(book => !book.completed);
+            const booksCompleted = books.filter(book => book.completed);
+
+            // Render books to read
+            if (booksToRead.length === 0) {
+                booksToReadList.innerHTML = `<li class="text-gray-500 text-center py-4">Looks like your list is empty!</li>`;
+            } else {
+                booksToRead.forEach(book => {
+                    const listItem = document.createElement('li');
+                    listItem.classList.add('flex', 'items-center', 'justify-between', 'bg-gray-800', 'p-3', 'rounded-xl', 'shadow-sm', 'border', 'border-gray-700');
+                    listItem.innerHTML = `
+                        <div class="flex-grow">
+                            <span class="font-medium text-gray-200">${book.title}</span>
+                            ${book.author ? `<span class="text-sm text-gray-400 block">by ${book.author}</span>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="summarize-btn text-yellow-400 hover:text-yellow-300 transition-colors p-2 rounded-full" data-title="${book.title}" data-author="${book.author || ''}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button class="mark-complete-btn text-rose-500 hover:text-rose-400 transition-colors p-2 rounded-full" data-id="${book.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                            <button class="remove-btn text-rose-400 hover:text-rose-300 transition-colors p-2 rounded-full" data-id="${book.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.013 21H7.987a2 2 0 01-1.92-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    `;
+                    booksToReadList.appendChild(listItem);
+                });
+            }
+
+            // Render completed books
+            if (booksCompleted.length === 0) {
+                completedBooksList.innerHTML = `<li class="text-gray-500 text-center py-4">No books completed yet.</li>`;
+            } else {
+                booksCompleted.forEach(book => {
+                    const listItem = document.createElement('li');
+                    listItem.classList.add('flex', 'items-center', 'justify-between', 'bg-rose-900', 'bg-opacity-20', 'p-3', 'rounded-xl', 'shadow-sm', 'border', 'border-rose-800');
+                    listItem.innerHTML = `
+                        <div>
+                            <span class="font-medium text-rose-400 line-through">${book.title}</span>
+                            ${book.author ? `<span class="text-sm text-rose-500 block line-through">by ${book.author}</span>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                             <button class="remove-btn text-rose-400 hover:text-rose-300 transition-colors p-2 rounded-full" data-id="${book.id}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.013 21H7.987a2 2 0 01-1.92-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                             </button>
+                        </div>
+                    `;
+                    completedBooksList.appendChild(listItem);
+                });
+            }
+        }
+
+        /**
+         * Updates the progress bar and text based on the number of completed books.
+         */
+        function updateProgressBar(books) {
+            const totalBooks = books.length;
+            const completedBooks = books.filter(book => book.completed).length;
+
+            let percentage = 0;
+            if (totalBooks > 0) {
+                percentage = Math.round((completedBooks / totalBooks) * 100);
+            }
+
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${completedBooks} of ${totalBooks} books read (${percentage}%)`;
+        }
+
+        /**
+         * Makes a fetch call to the Gemini API with exponential backoff.
+         */
+        async function fetchGemini(prompt, retries = 0) {
+            const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            const apiUrl = `${API_URL}${API_KEY}`;
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.status === 429 && retries < 5) {
+                    const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                    console.log(`Rate limit exceeded. Retrying in ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchGemini(prompt, retries + 1);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    return "No content generated. Please try again.";
+                }
+            } catch (error) {
+                console.error('Error fetching from Gemini API:', error);
+                return "An error occurred. Please try again later.";
+            }
+        }
+
+        // --- Event Handlers ---
+
+        passwordSubmitBtn.addEventListener('click', () => {
+            if (passwordInput.value === ADMIN_PASSWORD) {
+                passwordForm.classList.add('hidden');
+                addBookForm.classList.remove('hidden');
+            } else {
+                passwordInput.value = '';
+                passwordInput.placeholder = 'Incorrect password! Try again.';
+                passwordInput.classList.add('border-red-500');
+                setTimeout(() => {
+                    passwordInput.classList.remove('border-red-500');
+                    passwordInput.placeholder = 'Enter password';
+                }, 1500);
+            }
+        });
+
+        addBookBtn.addEventListener('click', async () => {
+            const title = newBookTitle.value.trim();
+            const author = newBookAuthor.value.trim() || null;
+
+            addBookError.classList.add('hidden'); // Hide any previous error message
+
+            if (!db) {
+                console.error("Database not initialized. Please try again in a moment.");
+                addBookError.textContent = "Database not ready. Please wait and try again.";
+                addBookError.classList.remove('hidden');
+                return;
+            }
+
+            if (title) {
+                try {
+                    await addDoc(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`), {
+                        title: title,
+                        author: author,
+                        completed: false
+                    });
+                    newBookTitle.value = '';
+                    newBookAuthor.value = '';
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    addBookError.textContent = "Failed to add book. Please try again.";
+                    addBookError.classList.remove('hidden');
+                }
+            } else {
+                addBookError.textContent = "Please enter a book title!";
+                addBookError.classList.remove('hidden');
+            }
+        });
+
+        booksToReadList.addEventListener('click', async (event) => {
+            const target = event.target.closest('.mark-complete-btn');
+            if (target && db) {
+                const bookId = target.dataset.id;
+                try {
+                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
+                    await updateDoc(bookRef, { completed: true });
+                } catch (e) {
+                    console.error("Error updating document: ", e);
+                }
+            }
+        });
+        
+        booksToReadList.addEventListener('click', async (event) => {
+            const target = event.target.closest('.remove-btn');
+            if (target && db) {
+                const bookId = target.dataset.id;
+                try {
+                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
+                    await deleteDoc(bookRef);
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
+                }
+            }
+        });
+
+        completedBooksList.addEventListener('click', async (event) => {
+            const target = event.target.closest('.remove-btn');
+            if (target && db) {
+                const bookId = target.dataset.id;
+                try {
+                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
+                    await deleteDoc(bookRef);
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
+                }
+            }
+        });
+
+        booksToReadList.addEventListener('click', async (event) => {
+            const target = event.target.closest('.summarize-btn');
+            if (target) {
+                const title = target.dataset.title;
+                const author = target.dataset.author;
+
+                summaryContent.innerHTML = `<div class="text-center"><div class="loading-spinner mx-auto"></div><p class="mt-2 text-gray-500">Generating summary...</p></div>`;
+                summaryModal.classList.remove('hidden');
+
+                const prompt = `Provide a concise, 100-word summary of the book "${title}" by ${author || 'an unknown author'}.`;
+                const summary = await fetchGemini(prompt);
+                summaryContent.textContent = summary;
+            }
+        });
+
+        // Toggle password visibility
+        togglePasswordBtn.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            eyeOpenIcon.classList.toggle('hidden');
+            eyeClosedIcon.classList.toggle('hidden');
+        });
+
+        // Close modal button
+        closeModalBtn.addEventListener('click', () => {
+            summaryModal.classList.add('hidden');
+        });
+
+        // Close modal on outside click
+        window.addEventListener('click', (event) => {
+            if (event.target === summaryModal) {
+                summaryModal.classList.add('hidden');
+            }
+        });
+
+        // --- Canvas Starfield Logic ---
+        const canvas = document.getElementById('starfieldCanvas');
+        const ctx = canvas.getContext('2d');
+        const stars = [];
+        const numStars = 500;
+        
+        function Star() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 1;
+            this.dx = Math.random() * 0.2 - 0.1;
+            this.dy = Math.random() * 0.2 - 0.1;
+            this.opacity = Math.random();
+            this.opacitySpeed = Math.random() * 0.02 - 0.01;
+
+            // Apply wine-red color logic for the glow
+            if (Math.random() < 0.3) { // 30% chance for a wine-red glow
+                this.color = 'hsl(340, 80%, 70%)'; // A wine-red hue
+            } else {
+                // The majority of stars have a classic white/blueish glow
+                this.color = 'hsl(210, 100%, 90%)';
+            }
+
+            this.draw = function() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = this.size * 2;
+                ctx.fill();
+            }
+
+            this.update = function() {
+                this.x += this.dx;
+                this.y += this.dy;
+
+                if (this.x < 0 || this.x > canvas.width) {
+                    this.dx *= -1;
+                }
+                if (this.y < 0 || this.y > canvas.height) {
+                    this.dy *= -1;
+                }
+
+                this.opacity += this.opacitySpeed;
+                if (this.opacity > 1 || this.opacity < 0) {
+                    this.opacitySpeed *= -1;
+                }
+            }
+        }
+
+        function initStarfield() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (stars.length === 0) {
+                for (let i = 0; i < numStars; i++) {
+                    stars.push(new Star());
+                }
+            }
+        }
+
+        function animateStarfield() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.shadowBlur = 0;
+            for (let i = 0; i < stars.length; i++) {
+                stars[i].update();
+                stars[i].draw();
+            }
+            requestAnimationFrame(animateStarfield);
+        }
+
+        window.addEventListener('resize', initStarfield);
+
+        // Initial load
+        window.onload = () => {
+            initStarfield();
+            animateStarfield();
+            setupFirebase();
+        };
+    </script>
+
+</body>
+</html>
