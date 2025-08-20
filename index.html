@@ -3,722 +3,673 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Reading Challenge</title>
-    <!-- Tailwind CSS CDN for modern, responsive styling -->
+    <title>My Reading Challenge</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: #111827;
-            background-image: radial-gradient(at 20% 50%, #252844 0%, transparent 50%), 
-                              radial-gradient(at 80% 0%, #1a2233 0%, transparent 50%),
-                              radial-gradient(at 50% 100%, #15162a 0%, transparent 50%);
+            background-color: #111827;
+            position: relative;
             overflow-x: hidden;
         }
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #2d3748;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #4a5568;
-            border-radius: 4px;
-        }
-        .loading-spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+
+        /* Moon element */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 15%;
+            left: 15%;
+            width: 180px;
+            height: 180px;
+            background-color: #fdfbf1;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            box-shadow: 0 0 80px rgba(253, 244, 209, 0.2),
+                        0 0 150px rgba(253, 244, 209, 0.15);
+            z-index: -2;
+            transform: translate(-50%, -50%);
         }
 
-        /* The canvas will be positioned behind all content */
-        canvas {
+        /* Clickable area for the moon */
+        #moon-click-area {
+            position: fixed;
+            top: 15%;
+            left: 15%;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            cursor: pointer;
+        }
+
+        /* Canvas elements for fireflies */
+        .firefly-canvas {
             position: fixed;
             top: 0;
             left: 0;
-            z-index: -1;
             width: 100%;
             height: 100%;
+            pointer-events: none; /* Make canvas non-interactive */
         }
+        #firefly-canvas-bg { z-index: -1; }
+        /* Updated z-index to bring foreground fireflies in front of content */
+        #firefly-canvas-fg { z-index: 21; } 
 
-        /* --- Progress Bar Animation --- */
-        .progress-shimmer {
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+        #progress-bar {
+            transition: width 2s cubic-bezier(0.25, 1, 0.5, 1);
+            background-color: #881337;
+            position: relative;
+            overflow: hidden;
+        }
+        #progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background-image: linear-gradient(
-                to right,
-                #be123c 0%,
-                #f43f5e 20%,
-                #be123c 40%
+                100deg,
+                rgba(255, 255, 255, 0) 20%,
+                rgba(255, 255, 255, 0.15) 50%,
+                rgba(255, 255, 255, 0) 80%
             );
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite linear;
+            animation: shimmer 4s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .admin-only {
+            display: none;
+        }
+        #dino-game-canvas {
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%; /* Make canvas responsive */
+            height: 200px;
         }
         
-        @keyframes shimmer {
-            0% {
-                background-position: 200% 0;
-            }
-            100% {
-                background-position: -200% 0;
-            }
+        /* Jumpscare animation */
+        @keyframes jumpscare {
+            0% { transform: scale(1) rotate(0deg); color: #be123c; }
+            10%, 30%, 50%, 70%, 90% { transform: scale(3.5) rotate(-8deg); }
+            20%, 40%, 60%, 80% { transform: scale(3.5) rotate(8deg); }
+            50% { color: #ef4444; }
+            100% { transform: scale(1) rotate(0deg); color: #be123c; }
+        }
+        .jumpscare-effect {
+            display: inline-block; /* Required for transform to work */
+            animation: jumpscare 0.6s ease-in-out;
+        }
+
+        /* Styles for scrollable book lists */
+        .book-list-container {
+            max-height: 40vh; /* Set a maximum height */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 8px; /* Add some space for the scrollbar */
+        }
+
+        /* Aesthetic scrollbar styling */
+        .book-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .book-list-container::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+            border-radius: 10px;
+        }
+        .book-list-container::-webkit-scrollbar-thumb {
+            background: #4b5563; /* bg-gray-600 */
+            border-radius: 10px;
+        }
+        .book-list-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* bg-gray-500 */
         }
     </style>
 </head>
-<body class="bg-[#111827]">
+<body class="text-gray-200">
 
-    <!-- The canvas element for our animated background -->
-    <canvas id="starfieldCanvas"></canvas>
+    <!-- Elements for background effects -->
+    <div id="moon-click-area"></div>
+    <canvas id="firefly-canvas-bg" class="firefly-canvas"></canvas>
+    <canvas id="firefly-canvas-fg" class="firefly-canvas"></canvas>
 
-    <!-- New flex container to ensure the main content is perfectly centered -->
-    <div class="min-h-screen flex items-center justify-center p-4 md:p-8">
-        <div class="w-full max-w-4xl bg-[#1f2937] rounded-3xl shadow-2xl p-6 md:p-10 border border-[#2d3748] relative z-10">
+    <!-- Lock/Unlock Button -->
+    <button id="lock-btn" class="fixed top-4 right-4 z-50 bg-gray-700 text-white p-3 rounded-full hover:bg-gray-600 transition-colors shadow-lg" aria-label="Unlock Admin Controls">
+        <i data-lucide="lock" id="lock-icon"></i>
+    </button>
 
-            <!-- Title and Description -->
-            <header class="text-center mb-8 md:mb-12">
-                <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">The Reading Challenge</h1>
-                <p class="text-lg text-gray-400">Track how your soon to be bf is dooin</p>
-            </header>
-
-            <!-- Main Progress Bar Section -->
-            <section class="mb-8 md:mb-12">
-                <h2 class="text-2xl font-semibold text-gray-300 mb-4">My Progress</h2>
-                <div class="w-full h-8 bg-[#374151] rounded-full overflow-hidden shadow-inner">
-                    <div id="progressBar" class="h-full bg-rose-500 transition-all duration-500 ease-in-out progress-shimmer" style="width: 0%;"></div>
-                </div>
-                <p id="progressText" class="text-center text-gray-400 mt-2 font-medium">0% complete</p>
-            </section>
-
-            <!-- Book Lists Section -->
-            <section class="grid md:grid-cols-2 gap-6 md:gap-8 mb-8">
-                <!-- To Read List -->
-                <div class="bg-[#2d3748] p-6 rounded-2xl border border-[#374151] shadow-lg">
-                    <h3 class="text-xl font-semibold text-gray-300 mb-4">Books to Read</h3>
-                    <ul id="booksToReadList" class="space-y-3 overflow-y-auto max-h-72 pr-2">
-                        <li class="text-gray-500 text-center py-4">Loading books...</li>
-                    </ul>
-                </div>
-
-                <!-- Completed List -->
-                <div class="bg-rose-900 bg-opacity-20 p-6 rounded-2xl border border-rose-800 shadow-lg">
-                    <h3 class="text-xl font-semibold text-gray-300 mb-4">Completed Books</h3>
-                    <ul id="completedBooksList" class="space-y-3 overflow-y-auto max-h-72 pr-2">
-                        <li class="text-gray-500 text-center py-4">No books completed.</li>
-                    </ul>
-                </div>
-            </section>
-
-            <!-- Admin Panel for adding books -->
-            <section class="mt-8 pt-6 border-t border-[#374151]">
-                <h2 class="text-2xl font-semibold text-gray-300 mb-4">Admin Panel</h2>
-                <div id="passwordForm">
-                    <p class="text-gray-400 mb-4">To add books, please enter the password.</p>
-                    <div class="relative w-full flex items-center mb-4">
-                        <input type="password" id="passwordInput" placeholder="Enter password" class="w-full px-4 py-2 pr-10 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
-                        <button type="button" id="togglePasswordBtn" class="absolute right-3 text-gray-400 hover:text-gray-200 transition-colors">
-                            <!-- Eye open icon -->
-                            <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            <!-- Eye closed icon (initially hidden) -->
-                            <svg id="eye-closed" class="h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 1.258 0 2.483.21 3.65.619M21 12c-1.274 4.057-5.064 7-9.542 7-1.258 0-2.483-.21-3.65-.619m-4.469-8.75l11.188 11.188" />
-                            </svg>
-                        </button>
-                    </div>
-                    <button id="passwordSubmitBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105">
-                        Unlock
-                    </button>
-                </div>
-                <div id="addBookForm" class="hidden">
-                    <p class="text-gray-400 mb-4">Welcome! Add a new book to the list.</p>
-                    <input type="text" id="newBookTitle" placeholder="Book Title" class="w-full px-4 py-2 mb-2 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
-                    <input type="text" id="newBookAuthor" placeholder="Author (optional)" class="w-full px-4 py-2 mb-4 rounded-xl border border-[#4a5568] bg-[#1f2937] text-gray-200 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all">
-                    <div id="addBookError" class="text-red-400 text-sm mt-2 hidden">Please enter a book title!</div>
-                    <button id="addBookBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg hover:bg-rose-700 transition-colors transform hover:scale-105">
-                        Add Book
-                    </button>
-                    <!-- New Button to Add All Books -->
-                    <div class="mt-4">
-                        <button id="addBulkBooksBtn" class="w-full py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg transition-colors transform hover:scale-105" disabled>
-                            <span id="addBulkBtnText" class="flex items-center justify-center">
-                                <span class="loading-spinner mr-2" id="addBulkSpinner"></span> Connecting...
-                            </span>
-                        </button>
-                        <div id="addBulkStatus" class="text-rose-400 text-sm mt-2 hidden"></div>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Modal for Book Summary -->
-            <div id="summaryModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 overflow-y-auto h-full w-full">
-                <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-2xl bg-[#1f2937] border-[#2d3748]">
-                    <div class="mt-3 text-center">
-                        <h3 class="text-lg leading-6 font-medium text-white mb-4">Book Summary</h3>
-                        <div id="summaryContent" class="text-sm text-gray-400 text-left"></div>
-                        <div class="mt-4">
-                            <button id="closeModalBtn" class="py-2 px-4 bg-gray-700 text-gray-200 font-bold rounded-lg hover:bg-gray-600 transition-colors">
-                                Close
-                            </button>
-                        </div>
-                    </div>
+    <div id="app" class="relative z-20 container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-rose-500">My Reading Challenge</h1>
+            <p class="text-lg text-gray-400 mt-2">...track how far your soon-to-be bf has reached</p>
+        </header>
+        
+        <!-- Progress Bar Section -->
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-xl font-semibold mb-3 text-rose-400">Progress</h2>
+            <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                <div id="progress-bar" class="h-4 rounded-full" style="width: 0%;">
                 </div>
             </div>
+            <p id="progress-text" class="text-center mt-3 text-gray-400">
+                0 of 0 books completed <span id="jumpscare-target" class="font-bold text-rose-500">(<span id="progress-percent">0</span>%)</span>
+            </p>
+        </div>
 
+        <!-- Main Content: Book Lists -->
+        <main class="grid md:grid-cols-2 gap-8">
+            <!-- Reading List -->
+            <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg flex flex-col">
+                <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                    <h2 class="text-2xl font-bold text-rose-400 flex items-center">
+                        <i data-lucide="book-open" class="mr-2"></i> Reading List
+                    </h2>
+                    <button id="add-book-btn" class="admin-only bg-rose-700 text-white p-2 rounded-full hover:bg-rose-800 transition-colors shadow-md" aria-label="Add new book">
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+                <div id="reading-list-container" class="book-list-container"></div>
+            </div>
+
+            <!-- Completed Books -->
+            <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg flex flex-col">
+                 <h2 class="text-2xl font-bold text-rose-400 mb-4 flex-shrink-0">
+                    <i data-lucide="check-circle-2" class="mr-2"></i> Completed
+                  </h2>
+                <div id="completed-list-container" class="book-list-container"></div>
+            </div>
+        </main>
+
+        <!-- Save Changes Button -->
+        <footer class="admin-only text-center mt-8">
+            <button id="save-changes-btn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg">
+                <i data-lucide="save" class="inline-block mr-2 -mt-1"></i> Save Changes
+            </button>
+            <p class="text-sm text-gray-500 mt-2">Click here to get the updated book list code to save in your file.</p>
+        </footer>
+    </div>
+    
+    <!-- Modals -->
+    <div id="password-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-sm relative transform scale-95">
+             <button id="close-password-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h3 class="text-xl font-bold text-rose-400 mb-4">Enter Admin Password</h3>
+            <form id="password-form" class="space-y-4">
+                <input id="password-input" type="password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-rose-500 focus:border-rose-500 text-white" required>
+                <p id="password-error" class="text-red-500 text-sm h-4"></p>
+                <button type="submit" class="w-full bg-rose-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-rose-800 transition-colors">Unlock</button>
+            </form>
+        </div>
+    </div>
+    <div id="add-book-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md relative transform scale-95">
+            <button id="close-book-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h3 class="text-2xl font-bold text-rose-400 mb-4">Add a New Book</h3>
+            <form id="add-book-form" class="space-y-4">
+                <input id="book-title-input" type="text" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm" placeholder="Book Title" required>
+                <input id="book-author-input" type="text" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm" placeholder="Author" required>
+                <button type="submit" class="w-full bg-rose-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-rose-800 transition-colors">Add Book</button>
+            </form>
+        </div>
+    </div>
+    <div id="save-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative transform scale-95">
+            <button id="close-save-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h3 class="text-xl font-bold text-rose-400 mb-2">Copy Your Updated Data</h3>
+            <p class="text-gray-400 mb-4">Replace the old book data in your `index.html` file with this code.</p>
+            <pre class="bg-gray-900 text-sm text-yellow-300 p-4 rounded-md overflow-x-auto"><code id="data-output"></code></pre>
+            <button id="copy-data-btn" class="mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Copy to Clipboard</button>
+        </div>
+    </div>
+    <!-- Dino Game Modal -->
+    <div id="dino-game-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
+        <div class="modal-content bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 w-full max-w-lg relative transform scale-95 text-center">
+            <button id="close-dino-modal-btn" class="absolute top-2 right-2 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h3 class="text-lg font-bold text-rose-400 mb-2">Surprise!</h3>
+            <canvas id="dino-game-canvas"></canvas>
+            <p class="text-gray-400 mt-2 text-sm">Press <span class="font-bold text-rose-400">Space</span> or <span class="font-bold text-rose-400">Tap</span> to Jump!</p>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase-related global variables that will be provided by the runtime environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // --- Firebase Initialization ---
-        let app;
-        let db;
-        let auth;
-        let userId;
-
-        const ADMIN_PASSWORD = "Shanmukhaiscute"; 
-
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        const booksToReadList = document.getElementById('booksToReadList');
-        const completedBooksList = document.getElementById('completedBooksList');
-        const passwordInput = document.getElementById('passwordInput');
-        const togglePasswordBtn = document.getElementById('togglePasswordBtn');
-        const eyeOpenIcon = document.getElementById('eye-open');
-        const eyeClosedIcon = document.getElementById('eye-closed');
-        const passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
-        const passwordForm = document.getElementById('passwordForm');
-        const addBookForm = document.getElementById('addBookForm');
-        const newBookTitle = document.getElementById('newBookTitle');
-        const newBookAuthor = document.getElementById('newBookAuthor');
-        const addBookBtn = document.getElementById('addBookBtn');
-        const addBookError = document.getElementById('addBookError');
-        const addBulkBooksBtn = document.getElementById('addBulkBooksBtn');
-        const addBulkStatus = document.getElementById('addBulkStatus');
-        const addBulkBtnText = document.getElementById('addBulkBtnText');
-        const addBulkSpinner = document.getElementById('addBulkSpinner');
-        const summaryModal = document.getElementById('summaryModal');
-        const summaryContent = document.getElementById('summaryContent');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-
-        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=';
-        const API_KEY = "";
-
-        // Function to set up Firebase and listeners
-        async function setupFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // Authenticate the user
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        // Start listening to the database for real-time updates
-                        listenToBooks();
-                    } else {
-                        // User is signed out, disable the button
-                        updateBulkAddButtonState(false);
-                    }
-                });
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                updateBulkAddButtonState(false);
-                addBulkStatus.textContent = "Connection failed. Please check your network and try again.";
-                addBulkStatus.classList.remove('hidden');
-            }
-        }
-        
-        function updateBulkAddButtonState(isReady) {
-            if (isReady) {
-                addBulkBooksBtn.disabled = false;
-                addBulkBooksBtn.classList.add('cursor-pointer', 'hover:bg-rose-700');
-                addBulkBtnText.innerHTML = `Add All Challenge Books`;
-            } else {
-                addBulkBooksBtn.disabled = true;
-                addBulkBooksBtn.classList.remove('cursor-pointer', 'hover:bg-rose-700');
-                addBulkBtnText.innerHTML = `<span class="loading-spinner mr-2"></span> Connecting...`;
-            }
-        }
-
-
-        // Real-time listener for the books collection
-        function listenToBooks() {
-            const booksCollectionRef = collection(db, `artifacts/${appId}/public/data/reading_challenge_books`);
-            onSnapshot(booksCollectionRef, (querySnapshot) => {
-                const books = [];
-                querySnapshot.forEach((doc) => {
-                    books.push({ id: doc.id, ...doc.data() });
-                });
-                renderBooks(books);
-                updateProgressBar(books);
-
-                // Enable the bulk add button once the initial data load is complete
-                updateBulkAddButtonState(true);
-            });
-        }
-
-        /**
-         * Renders the books to the 'to read' and 'completed' lists.
-         */
-        function renderBooks(books) {
-            booksToReadList.innerHTML = '';
-            completedBooksList.innerHTML = '';
-
-            const booksToRead = books.filter(book => !book.completed);
-            const booksCompleted = books.filter(book => book.completed);
-
-            // Render books to read
-            if (booksToRead.length === 0) {
-                booksToReadList.innerHTML = `<li class="text-gray-500 text-center py-4">Looks like your list is empty!</li>`;
-            } else {
-                booksToRead.forEach(book => {
-                    const listItem = document.createElement('li');
-                    listItem.classList.add('flex', 'items-center', 'justify-between', 'bg-gray-800', 'p-3', 'rounded-xl', 'shadow-sm', 'border', 'border-gray-700');
-                    listItem.innerHTML = `
-                        <div class="flex-grow">
-                            <span class="font-medium text-gray-200">${book.title}</span>
-                            ${book.author ? `<span class="text-sm text-gray-400 block">by ${book.author}</span>` : ''}
-                        </div>
-                        <div class="flex space-x-2">
-                            <button class="summarize-btn text-yellow-400 hover:text-yellow-300 transition-colors p-2 rounded-full" data-title="${book.title}" data-author="${book.author || ''}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </button>
-                            <button class="mark-complete-btn text-rose-500 hover:text-rose-400 transition-colors p-2 rounded-full" data-id="${book.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </button>
-                            <button class="remove-btn text-rose-400 hover:text-rose-300 transition-colors p-2 rounded-full" data-id="${book.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.013 21H7.987a2 2 0 01-1.92-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                        </div>
-                    `;
-                    booksToReadList.appendChild(listItem);
-                });
-            }
-
-            // Render completed books
-            if (booksCompleted.length === 0) {
-                completedBooksList.innerHTML = `<li class="text-gray-500 text-center py-4">No books completed yet.</li>`;
-            } else {
-                booksCompleted.forEach(book => {
-                    const listItem = document.createElement('li');
-                    listItem.classList.add('flex', 'items-center', 'justify-between', 'bg-rose-900', 'bg-opacity-20', 'p-3', 'rounded-xl', 'shadow-sm', 'border', 'border-rose-800');
-                    listItem.innerHTML = `
-                        <div>
-                            <span class="font-medium text-rose-400 line-through">${book.title}</span>
-                            ${book.author ? `<span class="text-sm text-rose-500 block line-through">by ${book.author}</span>` : ''}
-                        </div>
-                        <div class="flex space-x-2">
-                             <button class="remove-btn text-rose-400 hover:text-rose-300 transition-colors p-2 rounded-full" data-id="${book.id}">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.013 21H7.987a2 2 0 01-1.92-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                             </button>
-                        </div>
-                    `;
-                    completedBooksList.appendChild(listItem);
-                });
-            }
-        }
-
-        /**
-         * Updates the progress bar and text based on the number of completed books.
-         */
-        function updateProgressBar(books) {
-            const totalBooks = books.length;
-            const completedBooks = books.filter(book => book.completed).length;
-
-            let percentage = 0;
-            if (totalBooks > 0) {
-                percentage = Math.round((completedBooks / totalBooks) * 100);
-            }
-
-            progressBar.style.width = `${percentage}%`;
-            progressText.textContent = `${completedBooks} of ${totalBooks} books read (${percentage}%)`;
-        }
-
-        /**
-         * Makes a fetch call to the Gemini API with exponential backoff.
-         */
-        async function fetchGemini(prompt, retries = 0) {
-            const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-            const payload = { contents: chatHistory };
-            const apiUrl = `${API_URL}${API_KEY}`;
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (response.status === 429 && retries < 5) {
-                    const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
-                    console.log(`Rate limit exceeded. Retrying in ${delay / 1000}s...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return fetchGemini(prompt, retries + 1);
-                }
-
-                if (!response.ok) {
-                    throw new Error(`API call failed with status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    return result.candidates[0].content.parts[0].text;
-                } else {
-                    return "No content generated. Please try again.";
-                }
-            } catch (error) {
-                console.error('Error fetching from Gemini API:', error);
-                return "An error occurred. Please try again later.";
-            }
-        }
-        
-        const booksToAdd = [
-            { title: 'Powerless', author: 'Lauren Roberts', completed: false },
-            { title: 'Reckless', author: 'Lauren Roberts', completed: false },
-            { title: 'Fearless', author: 'Lauren Roberts', completed: false },
-            { title: 'Fourth Wing', author: 'Rebecca Yarros', completed: false },
-            { title: 'Iron Flame', author: 'Rebecca Yarros', completed: false },
-            { title: 'Onyx Storm', author: 'Rebecca Yarros', completed: false },
-            { title: 'A Court of Thorns and Roses', author: 'Sarah J. Maas', completed: false },
-            { title: 'A Court of Mist and Fury', author: 'Sarah J. Maas', completed: false },
-            { title: 'A Court of Wings and Ruin', author: 'Sarah J. Maas', completed: false },
-            { title: 'A Court of Frost and Starlight', author: 'Sarah J. Maas', completed: false },
-            { title: 'A Court of Silver Flames', author: 'Sarah J. Maas', completed: false },
-            { title: 'The Cruel Prince', author: 'Holly Black', completed: false },
-            { title: 'The Queen of Nothing', author: 'Holly Black', completed: false },
-            { title: 'The Wicked King', author: 'Holly Black', completed: false },
-            { title: 'How the King of Elfhame', author: 'Holly Black', completed: false },
-            { title: 'Better Than the Movies', author: 'Lynn Painter', completed: false },
-            { title: 'Shatter Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Destroy Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Unravel Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Fracture Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Ignite Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Restore Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Shadow Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Defy Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Reveal Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Imagine Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Believe Me', author: 'Tahereh Mafi', completed: false },
-            { title: 'Twisted Love', author: 'Ana Huang', completed: false },
-            { title: 'Twisted Games', author: 'Ana Huang', completed: false },
-            { title: 'Twisted Hate', author: 'Ana Huang', completed: false },
-            { title: 'Twisted Lies', author: 'Ana Huang', completed: false },
-            { title: 'King of Wrath', author: 'Ana Huang', completed: false },
-            { title: 'King of Pride', author: 'Ana Huang', completed: false },
-            { title: 'King of Greed', author: 'Ana Huang', completed: false },
-            { title: 'King of Sloth', author: 'Ana Huang', completed: false },
-            { title: 'King of Envy', author: 'Ana Huang', completed: false },
-            { title: 'King of Gluttony', author: 'Ana Huang', completed: false },
-            { title: 'Haunting Adeline', author: 'H.D. Carlton', completed: false },
-            { title: 'Hunting Adeline', author: 'H.D. Carlton', completed: false },
-            { title: 'Toxic', author: 'Nicole Blanchard', completed: false },
-            { title: 'How to Kill Men and Get Away With It', author: 'Katy Brent', completed: false },
-            { title: 'I Bet You’d Look Good in a Coffin', author: 'Mandy McHugh', completed: false },
-            { title: 'How to Kill Your Family', author: 'Bella Mackie', completed: false },
-            { title: 'The Murder After the Night Before', author: 'Sarah Pinborough', completed: false },
-            { title: 'How to Kill a Guy in Ten Ways', author: 'Tanya Blackwood', completed: false },
-            { title: 'The Best Way to Bury Your Husband', author: 'Chris Collett', completed: false },
-            { title: 'Hooked', author: 'Emily McIntire', completed: false },
-            { title: 'A Good Girl\'s Guide to Murder', author: 'Holly Jackson', completed: false },
-            { title: 'Good Girl, Bad Blood', author: 'Holly Jackson', completed: false },
-            { title: 'As Good As Dead', author: 'Holly Jackson', completed: false },
-            { title: 'If He Had Been with Me', author: 'Laura Nowlin', completed: false },
-            { title: 'The Silent Patient', author: 'Alex Michaelides', completed: false },
-            { title: 'If Only I Had Told Her', author: 'Laura Nowlin', completed: false },
-            { title: 'Tease Me Once', author: 'R.S. Grey', completed: false },
-            { title: 'I\'ll Kiss You Twice', author: 'Lexie Sy', completed: false },
-            { title: 'Then You\'re Mine', author: 'R.S. Grey', completed: false },
-            { title: 'The Perfect Marriage', author: 'Jeneva Rose', completed: false },
-            { title: 'Never lie', author: 'Freida McFadden', completed: false },
-            { title: 'Bad men', author: 'Julie Mae', completed: false },
-            { title: 'Sweetpea', author: 'C.J. Skuse', completed: false },
-            { title: 'In bloom', author: 'Matthew J. Hall', completed: false },
-            { title: 'Dead head', author: 'Gabe Cole', completed: false },
-            { title: 'Thorn in my side', author: 'Jennifer Ann', completed: false },
-            { title: 'The bad seeds', author: 'J.P. Carter', completed: false },
-            { title: 'Trust Me When I Lie', author: 'Freida McFadden', completed: false },
-            { title: 'Love Letters to a Serial Killer', author: 'Lydia Peelle', completed: false },
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // --- EDIT YOUR BOOK DATA HERE ---
+        let readingList = [
+            { id: 1, title: "Powerless", author: "Lauren Roberts" },
+            { id: 2, title: "Reckless", author: "Lauren Roberts" },
+            { id: 3, title: "Fearless", author: "Lauren Roberts" },
+            { id: 4, title: "Fourth Wing", author: "Rebecca Yarros" },
+            { id: 5, title: "Iron Flame", author: "Rebecca Yarros" },
+            { id: 6, title: "Onyx Storm", author: "Rebecca Yarros" },
+            { id: 7, title: "A Court of Thorns and Roses", author: "Sarah J. Maas" },
+            { id: 8, title: "A Court of Mist and Fury", author: "Sarah J. Maas" },
+            { id: 9, title: "A Court of Wings and Ruin", author: "Sarah J. Maas" },
+            { id: 10, title: "A Court of Frost and Starlight", author: "Sarah J. Maas" },
+            { id: 11, title: "A Court of Silver Flames", author: "Sarah J. Maas" },
+            { id: 12, title: "The Cruel Prince", author: "Holly Black" },
+            { id: 13, title: "The Queen of Nothing", author: "Holly Black" },
+            { id: 14, title: "The Wicked King", author: "Holly Black" },
+            { id: 15, title: "How the King of Elfhame Learned to Hate Stories", author: "Holly Black" },
+            { id: 16, title: "Better Than the Movies", author: "Lynn Painter" },
+            { id: 17, title: "Shatter Me", author: "Tahereh Mafi" },
+            { id: 18, title: "Destroy Me", author: "Tahereh Mafi" },
+            { id: 19, title: "Unravel Me", author: "Tahereh Mafi" },
+            { id: 20, title: "Fracture Me", author: "Tahereh Mafi" },
+            { id: 21, title: "Ignite Me", author: "Tahereh Mafi" },
+            { id: 22, title: "Restore Me", author: "Tahereh Mafi" },
+            { id: 23, title: "Shadow Me", author: "Tahereh Mafi" },
+            { id: 24, title: "Defy Me", author: "Tahereh Mafi" },
+            { id: 25, title: "Reveal Me", author: "Tahereh Mafi" },
+            { id: 26, title: "Imagine Me", author: "Tahereh Mafi" },
+            { id: 27, title: "Believe Me", author: "Tahereh Mafi" },
+            { id: 28, title: "Twisted Love", author: "Ana Huang" },
+            { id: 29, title: "Twisted Games", author: "Ana Huang" },
+            { id: 30, title: "Twisted Hate", author: "Ana Huang" },
+            { id: 31, title: "Twisted Lies", author: "Ana Huang" },
+            { id: 32, title: "King of Wrath", author: "Ana Huang" },
+            { id: 33, title: "King of Pride", author: "Ana Huang" },
+            { id: 34, title: "King of Greed", author: "Ana Huang" },
+            { id: 35, title: "King of Sloth", author: "Ana Huang" },
+            { id: 36, title: "King of Envy", author: "Ana Huang" },
+            { id: 37, title: "King of Gluttony", author: "Ana Huang" },
+            { id: 38, title: "Haunting Adeline", author: "H. D. Carlton" },
+            { id: 39, title: "Hunting Adeline", author: "H. D. Carlton" },
+            { id: 40, title: "Toxic", author: "Nicole Blanchard" },
+            { id: 41, title: "How to Kill Men and Get Away With It", author: "Katy Brent" },
+            { id: 42, title: "I Bet You’d Look Good in a Coffin", author: "Unknown" },
+            { id: 43, title: "How to Kill Your Family", author: "Bella Mackie" },
+            { id: 44, title: "The Murder After the Night Before", author: "Katy Brent" },
+            { id: 45, title: "How to Kill a Guy in Ten Ways", author: "Unknown" },
+            { id: 46, title: "The Best Way to Bury Your Husband", author: "Unknown" },
+            { id: 47, title: "Hooked", author: "Emily McIntire" },
+            { id: 48, title: "A Good Girl's Guide to Murder", author: "Holly Jackson" },
+            { id: 49, title: "Good Girl, Bad Blood", author: "Holly Jackson" },
+            { id: 50, title: "As Good As Dead", author: "Holly Jackson" },
+            { id: 51, title: "If He Had Been with Me", author: "Laura Nowlin" },
+            { id: 52, title: "The Silent Patient", author: "Alex Michaelides" },
+            { id: 53, title: "If Only I Had Told Her", author: "Laura Nowlin" },
+            { id: 54, title: "Tease Me Once", author: "W. Winters" },
+            { id: 55, title: "I'll Kiss You Twice", author: "W. Winters" },
+            { id: 56, title: "Then You're Mine", author: "W. Winters" },
+            { id: 57, title: "The Perfect Marriage", author: "Jeneva Rose" },
+            { id: 58, title: "Never lie", author: "Freida McFadden" },
+            { id: 59, title: "Bad men", author: "Julie Mae Cohen" },
+            { id: 60, title: "Sweetpea", author: "C.J. Skuse" },
+            { id: 61, title: "In bloom", author: "C.J. Skuse" },
+            { id: 62, title: "Dead head", author: "C.J. Skuse" },
+            { id: 63, title: "Thorn in my side", author: "C.J. Skuse" },
+            { id: 64, title: "The bad seeds", author: "C.J. Skuse" },
+            { id: 65, title: "Trust Me When I Lie", author: "Unknown" },
+            { id: 66, title: "Love Letters to a Serial Killer", author: "Tasha Coryell" },
         ];
+        let completedBooks = [];
+        const ADMIN_PASSWORD = "Shanmukhaiscute";
 
+        // --- GLOBAL STATE ---
+        let isUnlocked = false;
+        let currentProgress = 0;
 
-        /**
-         * Adds the entire list of books to the Firestore database.
-         */
-        addBulkBooksBtn.addEventListener('click', async () => {
-            if (!db || addBulkBooksBtn.disabled) {
-                return; // Exit if the database isn't ready or the button is disabled
+        // --- DOM ELEMENTS ---
+        const dom = {
+            readingListContainer: document.getElementById('reading-list-container'),
+            completedListContainer: document.getElementById('completed-list-container'),
+            progressBar: document.getElementById('progress-bar'),
+            progressText: document.getElementById('progress-text'),
+            progressPercent: document.getElementById('progress-percent'),
+            jumpscareTarget: document.getElementById('jumpscare-target'),
+            lockBtn: document.getElementById('lock-btn'),
+            lockIcon: document.getElementById('lock-icon'),
+            moonClickArea: document.getElementById('moon-click-area'),
+            adminControls: document.querySelectorAll('.admin-only'),
+            modals: {
+                password: { el: document.getElementById('password-modal'), form: document.getElementById('password-form'), closeBtn: document.getElementById('close-password-modal-btn') },
+                addBook: { el: document.getElementById('add-book-modal'), form: document.getElementById('add-book-form'), closeBtn: document.getElementById('close-book-modal-btn') },
+                save: { el: document.getElementById('save-modal'), closeBtn: document.getElementById('close-save-modal-btn') },
+                dino: { el: document.getElementById('dino-game-modal'), closeBtn: document.getElementById('close-dino-modal-btn') }
+            },
+            addBookBtn: document.getElementById('add-book-btn'),
+            saveChangesBtn: document.getElementById('save-changes-btn'),
+            dataOutput: document.getElementById('data-output'),
+            copyDataBtn: document.getElementById('copy-data-btn')
+        };
+
+        // --- RENDER FUNCTIONS ---
+        const renderAll = () => {
+            renderBookList(dom.readingListContainer, readingList, handleMarkAsComplete, 'check', 'Mark as complete', 'text-green-400 hover:bg-green-900/50', handleDeleteFromReading);
+            renderBookList(dom.completedListContainer, completedBooks, handleMoveToReadingList, 'x', 'Move back to reading list', 'text-red-400 hover:bg-red-900/50', handleDeleteFromCompleted);
+            updateProgress();
+            lucide.createIcons();
+        };
+
+        const renderBookList = (container, books, onAction, iconName, label, colorClass, onDelete) => {
+            container.innerHTML = books.length === 0 ? `<p class="text-gray-500 italic">No books in this list yet.</p>` : '';
+            if (books.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'space-y-3';
+                books.forEach(book => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between bg-gray-700/50 p-3 rounded-lg min-h-[68px]';
+                    li.innerHTML = `<div><p class="font-semibold text-gray-100">${book.title}</p><p class="text-sm text-gray-400">${book.author}</p></div>`;
+                    if (isUnlocked) {
+                        const buttonsWrapper = document.createElement('div');
+                        buttonsWrapper.className = 'flex items-center space-x-2';
+                        buttonsWrapper.innerHTML = `
+                            <button class="p-2 rounded-full transition-colors text-gray-500 hover:bg-red-900/50 hover:text-red-400" aria-label="Delete book" onclick="handleDeleteWrapper('${onDelete.name}', ${book.id})"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                            <button class="p-2 rounded-full transition-colors ${colorClass}" aria-label="${label}" onclick="handleActionWrapper('${onAction.name}', ${book.id})"><i data-lucide="${iconName}" class="w-5 h-5"></i></button>
+                        `;
+                        li.appendChild(buttonsWrapper);
+                    }
+                    ul.appendChild(li);
+                });
+                container.appendChild(ul);
+            }
+        };
+
+        const updateProgress = () => {
+            const totalBooks = readingList.length + completedBooks.length;
+            const targetProgress = totalBooks > 0 ? (completedBooks.length / totalBooks) * 100 : 0;
+            dom.progressBar.style.width = `${targetProgress}%`;
+            dom.progressText.childNodes[0].nodeValue = `${completedBooks.length} of ${totalBooks} books completed `;
+            animateCounter(currentProgress, targetProgress, 1500);
+            currentProgress = targetProgress;
+        };
+
+        const animateCounter = (start, end, duration) => {
+            let startTime = null;
+            const step = (timestamp) => {
+                if (!startTime) startTime = timestamp;
+                const progress = Math.min((timestamp - startTime) / duration, 1);
+                const current = Math.floor(progress * (end - start) + start);
+                dom.progressPercent.textContent = current;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        };
+
+        // --- BOOK MANAGEMENT ---
+        window.handleActionWrapper = (funcName, bookId) => {
+            const book = [...readingList, ...completedBooks].find(b => b.id === bookId);
+            if (book) {
+                if (funcName === 'handleMarkAsComplete') handleMarkAsComplete(book);
+                if (funcName === 'handleMoveToReadingList') handleMoveToReadingList(book);
+            }
+        };
+        window.handleDeleteWrapper = (funcName, bookId) => {
+            if (funcName === 'handleDeleteFromReading') handleDeleteFromReading(bookId);
+            if (funcName === 'handleDeleteFromCompleted') handleDeleteFromCompleted(bookId);
+        };
+        const handleMarkAsComplete = (book) => { readingList = readingList.filter(b => b.id !== book.id); completedBooks.push(book); renderAll(); };
+        const handleMoveToReadingList = (book) => { completedBooks = completedBooks.filter(b => b.id !== book.id); readingList.push(book); renderAll(); };
+        const handleDeleteFromReading = (bookId) => { readingList = readingList.filter(b => b.id !== bookId); renderAll(); };
+        const handleDeleteFromCompleted = (bookId) => { completedBooks = completedBooks.filter(b => b.id !== bookId); renderAll(); };
+
+        // --- MODAL & UI MANAGEMENT ---
+        const openModal = (modal) => { modal.el.classList.remove('opacity-0', 'pointer-events-none'); modal.el.querySelector('.modal-content').classList.remove('scale-95'); };
+        const closeModal = (modal) => { modal.el.classList.add('opacity-0', 'pointer-events-none'); modal.el.querySelector('.modal-content').classList.add('scale-95'); };
+        
+        const setAdminMode = (unlocked) => {
+            isUnlocked = unlocked;
+            dom.adminControls.forEach(el => el.style.display = unlocked ? 'block' : 'none');
+            dom.lockIcon.setAttribute('data-lucide', unlocked ? 'unlock' : 'lock');
+            lucide.createIcons();
+            renderAll();
+        };
+
+        // --- JUMPSCARE SOUND ---
+        const playJumpscareSound = () => {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'sawtooth';
+            const now = audioContext.currentTime;
+            gainNode.gain.setValueAtTime(0.3, now);
+            oscillator.frequency.setValueAtTime(440, now);
+            oscillator.frequency.linearRampToValueAtTime(110, now + 0.2);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
+            oscillator.start(now);
+            oscillator.stop(now + 0.2);
+        };
+
+        // --- EVENT LISTENERS ---
+        dom.lockBtn.addEventListener('click', () => openModal(dom.modals.password));
+        dom.addBookBtn.addEventListener('click', () => openModal(dom.modals.addBook));
+        dom.saveChangesBtn.addEventListener('click', () => {
+            dom.dataOutput.textContent = `let readingList = ${JSON.stringify(readingList, null, 4)};\n\nlet completedBooks = ${JSON.stringify(completedBooks, null, 4)};`;
+            openModal(dom.modals.save);
+        });
+        dom.copyDataBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(dom.dataOutput.textContent).then(() => {
+                dom.copyDataBtn.textContent = 'Copied!';
+                setTimeout(() => { dom.copyDataBtn.textContent = 'Copy to Clipboard'; }, 2000);
+            });
+        });
+
+        Object.values(dom.modals).forEach(modal => {
+            modal.closeBtn.addEventListener('click', () => closeModal(modal));
+            modal.el.addEventListener('click', (e) => { if (e.target === modal.el) closeModal(modal); });
+        });
+
+        dom.modals.password.form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = dom.modals.password.form.querySelector('input');
+            const errorEl = dom.modals.password.form.querySelector('#password-error');
+            if (input.value === ADMIN_PASSWORD) {
+                setAdminMode(true);
+                closeModal(dom.modals.password);
+                input.value = '';
+                errorEl.textContent = '';
+            } else {
+                errorEl.textContent = 'Incorrect password.';
+            }
+        });
+
+        dom.modals.addBook.form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = dom.modals.addBook.form.querySelector('#book-title-input').value;
+            const author = dom.modals.addBook.form.querySelector('#book-author-input').value;
+            if (title.trim() && author.trim()) {
+                readingList.push({ id: Date.now(), title, author });
+                renderAll();
+                closeModal(dom.modals.addBook);
+                dom.modals.addBook.form.reset();
+            }
+        });
+
+        // --- DINO GAME EASTER EGG ---
+        const dinoCanvas = document.getElementById('dino-game-canvas');
+        const dinoCtx = dinoCanvas.getContext('2d');
+        let player, gravity, obstacles, gameSpeed, score, gameOver, animationId;
+
+        function startGame() {
+            if (animationId) cancelAnimationFrame(animationId);
+            
+            dinoCanvas.width = dinoCanvas.clientWidth;
+            dinoCanvas.height = dinoCanvas.clientHeight;
+            
+            const scale = dinoCanvas.height / 200;
+            player = { x: 50 * scale, y: 180 * scale, w: 20 * scale, h: 20 * scale, dy: 0, jumpForce: 14 * scale, grounded: true };
+            gravity = 0.8 * scale;
+            obstacles = [];
+            gameSpeed = 5 * scale;
+            score = 0;
+            gameOver = false;
+            
+            spawnObstacle();
+            animateDinoGame();
+        }
+
+        function spawnObstacle() {
+            const scale = dinoCanvas.height / 200;
+            const obstacleHeight = (Math.random() * 30 + 20) * scale;
+            obstacles.push({ x: dinoCanvas.width, y: dinoCanvas.height - obstacleHeight, w: 15 * scale, h: obstacleHeight });
+        }
+
+        const jump = () => { if (player.grounded) { player.dy = -player.jumpForce; player.grounded = false; } };
+
+        document.addEventListener('keydown', e => { if (e.code === 'Space' && !gameOver) jump(); });
+        dinoCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (!gameOver) jump(); });
+        dinoCanvas.addEventListener('mousedown', e => { e.preventDefault(); if (gameOver) startGame(); else jump(); });
+
+        dom.moonClickArea.addEventListener('click', () => { openModal(dom.modals.dino); startGame(); });
+        
+        dom.modals.dino.closeBtn.addEventListener('click', () => {
+            if (animationId) cancelAnimationFrame(animationId);
+            playJumpscareSound();
+            dom.jumpscareTarget.classList.add('jumpscare-effect');
+            setTimeout(() => {
+                dom.jumpscareTarget.classList.remove('jumpscare-effect');
+            }, 600);
+        });
+
+        function animateDinoGame() {
+            animationId = requestAnimationFrame(animateDinoGame);
+            dinoCtx.clearRect(0, 0, dinoCanvas.width, dinoCanvas.height);
+
+            dinoCtx.fillStyle = '#9ca3af';
+            dinoCtx.fillRect(0, dinoCanvas.height - 20, dinoCanvas.width, 1);
+
+            player.dy += gravity;
+            player.y += player.dy;
+            if (player.y > dinoCanvas.height - 20 - player.h) {
+                player.y = dinoCanvas.height - 20 - player.h;
+                player.dy = 0;
+                player.grounded = true;
             }
             
-            addBulkStatus.classList.remove('hidden', 'text-green-400');
-            addBulkStatus.classList.add('text-rose-400');
-            addBulkStatus.innerHTML = `<div class="flex items-center justify-center"><div class="loading-spinner mr-2"></div>Adding books...</div>`;
-            addBulkBooksBtn.disabled = true;
+            dinoCtx.fillStyle = '#fdfbf1';
+            dinoCtx.fillRect(player.x, player.y, player.w, player.h);
 
-            try {
-                let existingBooks = [];
-                const querySnapshot = await getDocs(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`));
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    existingBooks.push({ title: data.title, author: data.author });
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let o = obstacles[i];
+                o.x -= gameSpeed;
+                dinoCtx.fillStyle = '#be123c';
+                dinoCtx.fillRect(o.x, o.y, o.w, o.h);
+
+                if (o.x + o.w < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                }
+
+                if (player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
+                    gameOver = true;
+                    cancelAnimationFrame(animationId);
+                    dinoCtx.fillStyle = '#fdfbf1';
+                    dinoCtx.font = `bold ${dinoCanvas.height / 10}px Inter`;
+                    dinoCtx.textAlign = 'center';
+                    dinoCtx.fillText('Game Over!', dinoCanvas.width / 2, dinoCanvas.height / 2 - 20);
+                    dinoCtx.font = `${dinoCanvas.height / 14}px Inter`;
+                    dinoCtx.fillText(`Score: ${score}`, dinoCanvas.width / 2, dinoCanvas.height / 2 + 10);
+                    dinoCtx.fillText('Tap to Restart', dinoCanvas.width / 2, dinoCanvas.height / 2 + 40);
+                    return;
+                }
+            }
+
+            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < dinoCanvas.width - (200 * (dinoCanvas.height / 200) + Math.random() * 150)) {
+                spawnObstacle();
+            }
+            
+            dinoCtx.fillStyle = '#fdfbf1';
+            dinoCtx.font = `${dinoCanvas.height / 12}px Inter`;
+            dinoCtx.textAlign = 'left';
+            dinoCtx.fillText('Score: ' + score, 10, 25);
+        }
+        
+        // --- FIREFLY ANIMATION ---
+        const bgCanvas = document.getElementById('firefly-canvas-bg');
+        const fgCanvas = document.getElementById('firefly-canvas-fg');
+        const bgCtx = bgCanvas.getContext('2d');
+        const fgCtx = fgCanvas.getContext('2d');
+        let bgFireflies = [];
+        let fgFireflies = [];
+
+        const setupCanvases = () => {
+            [bgCanvas, fgCanvas].forEach(canvas => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        };
+
+        class Firefly {
+            constructor(isForeground = false) {
+                this.isForeground = isForeground;
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                this.size = isForeground ? Math.random() * 2.5 + 1.5 : Math.random() * 2 + 1;
+                this.speedX = (Math.random() - 0.5) * (isForeground ? 0.7 : 0.4);
+                this.speedY = (Math.random() - 0.5) * (isForeground ? 0.7 : 0.4);
+                this.trail = [];
+                this.trailLength = Math.floor(Math.random() * 12) + 6;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > window.innerWidth) this.speedX *= -1;
+                if (this.y < 0 || this.y > window.innerHeight) this.speedY *= -1;
+                this.trail.push({ x: this.x, y: this.y, size: this.size });
+                if (this.trail.length > this.trailLength) this.trail.shift();
+            }
+            draw(ctx) {
+                this.trail.forEach((p, index) => {
+                    const opacity = index / this.trail.length;
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(255, 255, 150, ${opacity * (this.isForeground ? 0.4 : 0.25)})`;
+                    ctx.arc(p.x, p.y, p.size * (index / this.trail.length), 0, Math.PI * 2);
+                    ctx.fill();
                 });
-
-                for (const book of booksToAdd) {
-                    const isDuplicate = existingBooks.some(existingBook => 
-                        existingBook.title === book.title && existingBook.author === book.author
-                    );
-
-                    if (!isDuplicate) {
-                        await addDoc(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`), book);
-                    }
-                }
-                addBulkStatus.textContent = "All books added successfully!";
-                addBulkStatus.classList.remove('text-rose-400');
-                addBulkStatus.classList.add('text-green-400');
-            } catch (e) {
-                console.error("Error adding bulk documents: ", e);
-                addBulkStatus.textContent = "Failed to add books. Please try again.";
-            } finally {
-                addBulkBooksBtn.disabled = false;
-            }
-        });
-
-
-        // --- Event Handlers ---
-
-        passwordSubmitBtn.addEventListener('click', () => {
-            if (passwordInput.value === ADMIN_PASSWORD) {
-                passwordForm.classList.add('hidden');
-                addBookForm.classList.remove('hidden');
-            } else {
-                passwordInput.value = '';
-                passwordInput.placeholder = 'Incorrect password! Try again.';
-                passwordInput.classList.add('border-red-500');
-                setTimeout(() => {
-                    passwordInput.classList.remove('border-red-500');
-                    passwordInput.placeholder = 'Enter password';
-                }, 1500);
-            }
-        });
-
-        addBookBtn.addEventListener('click', async () => {
-            const title = newBookTitle.value.trim();
-            const author = newBookAuthor.value.trim() || null;
-
-            addBookError.classList.add('hidden'); // Hide any previous error message
-
-            if (!db) {
-                console.error("Database not initialized. Please try again in a moment.");
-                addBookError.textContent = "Database not ready. Please wait and try again.";
-                addBookError.classList.remove('hidden');
-                return;
-            }
-
-            if (title) {
-                try {
-                    await addDoc(collection(db, `artifacts/${appId}/public/data/reading_challenge_books`), {
-                        title: title,
-                        author: author,
-                        completed: false
-                    });
-                    newBookTitle.value = '';
-                    newBookAuthor.value = '';
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                    addBookError.textContent = "Failed to add book. Please try again.";
-                    addBookError.classList.remove('hidden');
-                }
-            } else {
-                addBookError.textContent = "Please enter a book title!";
-                addBookError.classList.remove('hidden');
-            }
-        });
-
-        booksToReadList.addEventListener('click', async (event) => {
-            const target = event.target.closest('.mark-complete-btn');
-            if (target && db) {
-                const bookId = target.dataset.id;
-                try {
-                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
-                    await updateDoc(bookRef, { completed: true });
-                } catch (e) {
-                    console.error("Error updating document: ", e);
-                }
-            }
-        });
-        
-        booksToReadList.addEventListener('click', async (event) => {
-            const target = event.target.closest('.remove-btn');
-            if (target && db) {
-                const bookId = target.dataset.id;
-                try {
-                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
-                    await deleteDoc(bookRef);
-                } catch (e) {
-                    console.error("Error deleting document: ", e);
-                }
-            }
-        });
-
-        completedBooksList.addEventListener('click', async (event) => {
-            const target = event.target.closest('.remove-btn');
-            if (target && db) {
-                const bookId = target.dataset.id;
-                try {
-                    const bookRef = doc(db, `artifacts/${appId}/public/data/reading_challenge_books`, bookId);
-                    await deleteDoc(bookRef);
-                } catch (e) {
-                    console.error("Error deleting document: ", e);
-                }
-            }
-        });
-
-        booksToReadList.addEventListener('click', async (event) => {
-            const target = event.target.closest('.summarize-btn');
-            if (target) {
-                const title = target.dataset.title;
-                const author = target.dataset.author;
-
-                summaryContent.innerHTML = `<div class="text-center"><div class="loading-spinner mx-auto"></div><p class="mt-2 text-gray-500">Generating summary...</p></div>`;
-                summaryModal.classList.remove('hidden');
-
-                const prompt = `Provide a concise, 100-word summary of the book "${title}" by ${author || 'an unknown author'}.`;
-                const summary = await fetchGemini(prompt);
-                summaryContent.textContent = summary;
-            }
-        });
-
-        // Toggle password visibility
-        togglePasswordBtn.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            eyeOpenIcon.classList.toggle('hidden');
-            eyeClosedIcon.classList.toggle('hidden');
-        });
-
-        // Close modal button
-        closeModalBtn.addEventListener('click', () => {
-            summaryModal.classList.add('hidden');
-        });
-
-        // Close modal on outside click
-        window.addEventListener('click', (event) => {
-            if (event.target === summaryModal) {
-                summaryModal.classList.add('hidden');
-            }
-        });
-
-        // --- Canvas Starfield Logic ---
-        const canvas = document.getElementById('starfieldCanvas');
-        const ctx = canvas.getContext('2d');
-        const stars = [];
-        const numStars = 500;
-        
-        function Star() {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.size = Math.random() * 2 + 1;
-            this.dx = Math.random() * 0.2 - 0.1;
-            this.dy = Math.random() * 0.2 - 0.1;
-            this.opacity = Math.random();
-            this.opacitySpeed = Math.random() * 0.02 - 0.01;
-
-            if (Math.random() < 0.3) {
-                this.color = 'hsl(340, 80%, 70%)';
-            } else {
-                this.color = 'hsl(210, 100%, 90%)';
-            }
-
-            this.draw = function() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = this.size * 2;
+                ctx.fillStyle = `rgba(255, 255, 150, ${this.isForeground ? 0.9 : 0.7})`;
+                ctx.shadowColor = 'yellow';
+                ctx.shadowBlur = 10;
                 ctx.fill();
-            }
-
-            this.update = function() {
-                this.x += this.dx;
-                this.y += this.dy;
-
-                if (this.x < 0 || this.x > canvas.width) {
-                    this.dx *= -1;
-                }
-                if (this.y < 0 || this.y > canvas.height) {
-                    this.dy *= -1;
-                }
-
-                this.opacity += this.opacitySpeed;
-                if (this.opacity > 1 || this.opacity < 0) {
-                    this.opacitySpeed *= -1;
-                }
+                ctx.shadowBlur = 0;
             }
         }
 
-        function initStarfield() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            if (stars.length === 0) {
-                for (let i = 0; i < numStars; i++) {
-                    stars.push(new Star());
-                }
-            }
-        }
-
-        function animateStarfield() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.shadowBlur = 0;
-            for (let i = 0; i < stars.length; i++) {
-                stars[i].update();
-                stars[i].draw();
-            }
-            requestAnimationFrame(animateStarfield);
-        }
-
-        window.addEventListener('resize', initStarfield);
-
-        // Initial load
-        window.onload = () => {
-            initStarfield();
-            animateStarfield();
-            setupFirebase();
+        const initFireflies = () => {
+            bgFireflies = [];
+            fgFireflies = [];
+            for (let i = 0; i < 25; i++) bgFireflies.push(new Firefly(false));
+            for (let i = 0; i < 10; i++) fgFireflies.push(new Firefly(true));
         };
-    </script>
 
+        const animateFireflies = () => {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            fgCtx.clearRect(0, 0, fgCanvas.width, fgCanvas.height);
+            bgFireflies.forEach(fly => { fly.update(); fly.draw(bgCtx); });
+            fgFireflies.forEach(fly => { fly.update(); fly.draw(fgCtx); });
+            requestAnimationFrame(animateFireflies);
+        };
+
+        // --- INITIAL RENDER ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderAll();
+            setupCanvases();
+            initFireflies();
+            animateFireflies();
+            window.addEventListener('resize', () => {
+                setupCanvases();
+                initFireflies();
+            });
+        });
+    </script>
+    
 </body>
 </html>
