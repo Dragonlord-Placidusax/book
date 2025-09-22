@@ -3,1008 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Reading Challenge</title>
+    <title>botfriend 1</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            position: relative;
-            overflow-x: hidden;
         }
-
-        /* Moon element */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 15%;
-            left: 15%;
-            width: 180px;
-            height: 180px;
-            background-color: #fdfbf1;
-            border-radius: 50%;
-            box-shadow: 0 0 80px rgba(253, 244, 209, 0.2),
-                        0 0 150px rgba(253, 244, 209, 0.15);
-            z-index: -2;
-            transform: translate(-50%, -50%);
-        }
-
-        /* Clickable area for the moon */
-        #moon-click-area {
-            position: fixed;
-            top: 15%;
-            left: 15%;
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            /* Increased z-index to be above foreground fireflies */
-            z-index: 22; 
-            cursor: pointer;
-        }
-
-        /* Canvas elements for fireflies */
-        .firefly-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Make canvas non-interactive */
-        }
-        #firefly-canvas-bg { z-index: -1; }
-        #firefly-canvas-fg { z-index: 21; } 
-
-        .modal {
-            transition: opacity 0.25s ease;
-        }
-        .modal-content {
-            transition: transform 0.25s ease;
-        }
-        #progress-bar {
-            transition: width 2s cubic-bezier(0.25, 1, 0.5, 1);
-            background-color: #881337;
-            position: relative;
-            overflow: hidden;
-        }
-        #progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: linear-gradient(
-                100deg,
-                rgba(255, 255, 255, 0) 20%,
-                rgba(255, 255, 255, 0.15) 50%,
-                rgba(255, 255, 255, 0) 80%
-            );
-            animation: shimmer 4s infinite;
-        }
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-        .admin-only {
-            display: none;
-        }
-        #dino-game-canvas {
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%; /* Make canvas responsive */
-            height: 200px;
-        }
-        
-        /* Jumpscare animation */
-        @keyframes jumpscare {
-            0% { transform: scale(1) rotate(0deg); color: #be123c; }
-            10%, 30%, 50%, 70%, 90% { transform: scale(3.5) rotate(-8deg); }
-            20%, 40%, 60%, 80% { transform: scale(3.5) rotate(8deg); }
-            50% { color: #ef4444; }
-            100% { transform: scale(1) rotate(0deg); color: #be123c; }
-        }
-        .jumpscare-effect {
-            display: inline-block; /* Required for transform to work */
-            animation: jumpscare 0.6s ease-in-out;
-        }
-
-        /* Styles for scrollable book lists */
-        .book-list-container {
-            max-height: 40vh; /* Set a maximum height */
-            overflow-y: auto; /* Enable vertical scrolling */
-            padding-right: 8px; /* Add some space for the scrollbar */
-        }
-
-        /* Aesthetic scrollbar styling */
-        .book-list-container::-webkit-scrollbar {
+        /* Custom scrollbar for a better look */
+        #chat-history::-webkit-scrollbar {
             width: 8px;
         }
-        .book-list-container::-webkit-scrollbar-track {
-            background: #1f2937; /* bg-gray-800 */
-            border-radius: 10px;
+        #chat-history::-webkit-scrollbar-track {
+            background: #1e293b; /* slate-800 */
         }
-        .book-list-container::-webkit-scrollbar-thumb {
-            background: #4b5563; /* bg-gray-600 */
+        #chat-history::-webkit-scrollbar-thumb {
+            background-color: #475569; /* slate-600 */
             border-radius: 10px;
+            border: 2px solid #1e293b; /* slate-800 */
         }
-        .book-list-container::-webkit-scrollbar-thumb:hover {
-            background: #6b7280; /* bg-gray-500 */
+        .chat-bubble {
+            max-width: 80%;
+            word-wrap: break-word;
         }
     </style>
 </head>
-<body class="text-gray-200">
+<body class="bg-slate-900 text-slate-200 flex flex-col h-screen">
 
-    <!-- Elements for background effects -->
-    <div id="moon-click-area"></div>
-    <canvas id="firefly-canvas-bg" class="firefly-canvas"></canvas>
-    <canvas id="firefly-canvas-fg" class="firefly-canvas"></canvas>
-
-    <!-- Lock/Unlock Button -->
-    <button id="lock-btn" class="fixed top-4 right-4 z-50 bg-gray-700 text-white p-3 rounded-full hover:bg-gray-600 transition-colors shadow-lg" aria-label="Unlock Admin Controls">
-        <i data-lucide="lock" id="lock-icon"></i>
-    </button>
-
-    <div id="app" class="relative z-20 container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
+    <main class="flex-grow flex flex-col overflow-hidden">
         
-        <!-- Header -->
-        <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-rose-500">My Reading Challenge</h1>
-            <p class="text-lg text-gray-400 mt-2">...track how far your soon-to-be bf has reached</p>
-        </header>
-        
-        <!-- Progress Bar Section -->
-        <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-3 text-rose-400">Progress</h2>
-            <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
-                <div id="progress-bar" class="h-4 rounded-full" style="width: 0%;">
+        <!-- Chat Interface -->
+        <section class="w-full flex flex-col bg-slate-900 h-full">
+            <!-- Header -->
+            <header class="p-4 border-b border-slate-800 bg-slate-950 text-center">
+                 <h1 class="text-xl font-bold text-white">iLLusion</h1>
+                 <p class="text-xs text-slate-600 mt-1">Powered by a bored guy in india </p>
+            </header>
+
+            <!-- Chat History -->
+            <div id="chat-history" class="flex-grow p-6 space-y-6 overflow-y-auto">
+                <!-- Messages will be appended here -->
+                <div class="flex justify-start">
+                    <div class="chat-bubble bg-slate-800 rounded-lg p-4">
+                        <p>yooo what's up nigga 🥱</p>
+                    </div>
                 </div>
             </div>
-            <p id="progress-text" class="text-center mt-3 text-gray-400">
-                0 of 0 books completed <span id="jumpscare-target" class="font-bold text-rose-500">(<span id="progress-percent">0</span>%)</span>
-            </p>
-        </div>
 
-        <!-- Main Content: Book Lists -->
-        <main class="grid md:grid-cols-2 gap-8">
-            <!-- Reading List -->
-            <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg flex flex-col">
-                <div class="flex justify-between items-center mb-4 flex-shrink-0">
-                    <h2 class="text-2xl font-bold text-rose-400 flex items-center">
-                        <i data-lucide="book-open" class="mr-2"></i> Reading List
-                    </h2>
-                    <button id="add-book-btn" class="admin-only bg-rose-700 text-white p-2 rounded-full hover:bg-rose-800 transition-colors shadow-md" aria-label="Add new book">
-                        <i data-lucide="plus"></i>
+            <!-- Typing Indicator -->
+             <div id="typing-indicator" class="px-6 pb-2 hidden">
+                <div class="flex items-center justify-start">
+                    <div class="chat-bubble bg-slate-800 rounded-lg p-4 flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style="animation-delay: 0s;"></div>
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style="animation-delay: 0.2s;"></div>
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style="animation-delay: 0.4s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Input Form -->
+            <div class="p-6 bg-slate-900 border-t border-slate-800">
+                <form id="chat-form" class="flex items-center space-x-4">
+                    <input type="text" id="message-input" class="flex-grow bg-slate-800 border border-slate-700 rounded-full py-3 px-5 text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition duration-200" placeholder="Type your message..." autocomplete="off">
+                    <button type="submit" id="send-button" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-3 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-send"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
-                </div>
-                <div id="reading-list-container" class="book-list-container"></div>
+                </form>
             </div>
+        </section>
 
-            <!-- Completed Books -->
-            <div class="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-lg flex flex-col">
-                 <h2 class="text-2xl font-bold text-rose-400 mb-4 flex items-center">
-                    <i data-lucide="check-circle-2" class="mr-2"></i> Completed
-                  </h2>
-                <div id="completed-list-container" class="book-list-container"></div>
-            </div>
-        </main>
+    </main>
 
-        <!-- Save Changes Button -->
-        <footer class="admin-only text-center mt-8">
-            <button id="save-changes-btn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg">
-                <i data-lucide="save" class="inline-block mr-2 -mt-1"></i> Save Changes
-            </button>
-            <p class="text-sm text-gray-500 mt-2">Click here to get the updated book list code to save in your file.</p>
-        </footer>
-    </div>
-    
-    <!-- Modals -->
-    <div id="password-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-sm relative transform scale-95">
-             <button id="close-password-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-xl font-bold text-rose-400 mb-4">Enter Admin Password</h3>
-            <form id="password-form" class="space-y-4">
-                <input id="password-input" type="password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-rose-500 focus:border-rose-500 text-white" required>
-                <p id="password-error" class="text-red-500 text-sm h-4"></p>
-                <button type="submit" class="w-full bg-rose-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-rose-800 transition-colors">Unlock</button>
-            </form>
-        </div>
-    </div>
-    <div id="add-book-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md relative transform scale-95">
-            <button id="close-book-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-2xl font-bold text-rose-400 mb-4">Add a New Book</h3>
-            <form id="add-book-form" class="space-y-4">
-                <input id="book-title-input" type="text" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm" placeholder="Book Title" required>
-                <input id="book-author-input" type="text" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm" placeholder="Author" required>
-                <button type="submit" class="w-full bg-rose-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-rose-800 transition-colors">Add Book</button>
-            </form>
-        </div>
-    </div>
-    <div id="save-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative transform scale-95 flex flex-col max-h-[90vh]">
-            <div class="flex-shrink-0">
-                <button id="close-save-modal-btn" class="absolute top-3 right-3 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-                <h3 class="text-xl font-bold text-rose-400 mb-2">Copy Your Updated Data</h3>
-                <p class="text-gray-400 mb-4">Replace the old book data in your `index.html` file with this code.</p>
-            </div>
-            <pre class="flex-grow bg-gray-900 text-sm text-yellow-300 p-4 rounded-md overflow-auto"><code id="data-output"></code></pre>
-            <div class="flex-shrink-0">
-                <button id="copy-data-btn" class="mt-4 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">Copy to Clipboard</button>
-            </div>
-        </div>
-    </div>
-    <!-- Dino Game Modal -->
-    <div id="dino-game-modal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 opacity-0 pointer-events-none">
-        <div class="modal-content bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl p-4 w-full max-w-lg relative transform scale-95 text-center">
-            <button id="close-dino-modal-btn" class="absolute top-2 right-2 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
-            <h3 class="text-lg font-bold text-rose-400 mb-2">Surprise!</h3>
-            <canvas id="dino-game-canvas"></canvas>
-            <p class="text-gray-400 mt-2 text-sm">Press <span class="font-bold text-rose-400">Space</span> or <span class="font-bold text-rose-400">Tap</span> to Jump!</p>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        // --- EDIT YOUR BOOK DATA HERE ---
-       let readingList = [
-    {
-        "id": 15,
-        "title": "How the King of Elfhame Learned to Hate Stories",
-        "author": "Holly Black"
-    },
-    {
-        "id": 39,
-        "title": "Hunting Adeline",
-        "author": "H. D. Carlton"
-    },
-    {
-        "id": 42,
-        "title": "I Bet You’d Look Good in a Coffin",
-        "author": "Unknown"
-    },
-    {
-        "id": 44,
-        "title": "The Murder After the Night Before",
-        "author": "Katy Brent"
-    },
-    {
-        "id": 45,
-        "title": "How to Kill a Guy in Ten Ways",
-        "author": "Unknown"
-    },
-    {
-        "id": 47,
-        "title": "Hooked",
-        "author": "Emily McIntire"
-    },
-    {
-        "id": 48,
-        "title": "A Good Girl's Guide to Murder",
-        "author": "Holly Jackson"
-    },
-    {
-        "id": 49,
-        "title": "Good Girl, Bad Blood",
-        "author": "Holly Jackson"
-    },
-    {
-        "id": 50,
-        "title": "As Good As Dead",
-        "author": "Holly Jackson"
-    },
-    {
-        "id": 51,
-        "title": "If He Had Been with Me",
-        "author": "Laura Nowlin"
-    },
-    {
-        "id": 53,
-        "title": "If Only I Had Told Her",
-        "author": "Laura Nowlin"
-    },
-    {
-        "id": 56,
-        "title": "Then You're Mine",
-        "author": "W. Winters"
-    },
-    {
-        "id": 57,
-        "title": "The Perfect Marriage",
-        "author": "Jeneva Rose"
-    },
-    {
-        "id": 60,
-        "title": "Sweetpea",
-        "author": "C.J. Skuse"
-    },
-    {
-        "id": 61,
-        "title": "In bloom",
-        "author": "C.J. Skuse"
-    },
-    {
-        "id": 62,
-        "title": "Dead head",
-        "author": "C.J. Skuse"
-    },
-    {
-        "id": 63,
-        "title": "Thorn in my side",
-        "author": "C.J. Skuse"
-    },
-    {
-        "id": 64,
-        "title": "The bad seeds",
-        "author": "C.J. Skuse"
-    },
-    {
-        "id": 65,
-        "title": "Trust Me When I Lie",
-        "author": "Unknown"
-    },
-    {
-        "id": 66,
-        "title": "Love Letters to a Serial Killer",
-        "author": "Tasha Coryell"
-    }
-];
+        const chatHistoryDiv = document.getElementById('chat-history');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator');
 
-let completedBooks = [
-    {
-        "id": 7,
-        "title": "A Court of Thorns and Roses",
-        "author": "Sarah J. Maas"
-    },
-    {
-        "id": 8,
-        "title": "A Court of Mist and Fury",
-        "author": "Sarah J. Maas"
-    },
-    {
-        "id": 9,
-        "title": "A Court of Wings and Ruin",
-        "author": "Sarah J. Maas"
-    },
-    {
-        "id": 10,
-        "title": "A Court of Frost and Starlight",
-        "author": "Sarah J. Maas"
-    },
-    {
-        "id": 11,
-        "title": "A Court of Silver Flames",
-        "author": "Sarah J. Maas"
-    },
-    {
-        "id": 28,
-        "title": "Twisted Love",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 29,
-        "title": "Twisted Games",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 30,
-        "title": "Twisted Hate",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 31,
-        "title": "Twisted Lies",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 32,
-        "title": "King of Wrath",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 38,
-        "title": "Haunting Adeline",
-        "author": "H. D. Carlton"
-    },
-    {
-        "id": 1,
-        "title": "Powerless",
-        "author": "Lauren Roberts"
-    },
-    {
-        "id": 2,
-        "title": "Reckless",
-        "author": "Lauren Roberts"
-    },
-    {
-        "id": 33,
-        "title": "King of Pride",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 34,
-        "title": "King of Greed",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 35,
-        "title": "King of Sloth",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 36,
-        "title": "King of Envy",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 37,
-        "title": "King of Gluttony",
-        "author": "Ana Huang"
-    },
-    {
-        "id": 3,
-        "title": "Fearless",
-        "author": "Lauren Roberts"
-    },
-    {
-        "id": 16,
-        "title": "Better Than the Movies",
-        "author": "Lynn Painter"
-    },
-    {
-        "id": 17,
-        "title": "Shatter Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 18,
-        "title": "Destroy Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 19,
-        "title": "Unravel Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 20,
-        "title": "Fracture Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 21,
-        "title": "Ignite Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 22,
-        "title": "Restore Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 23,
-        "title": "Shadow Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 24,
-        "title": "Defy Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 25,
-        "title": "Reveal Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 26,
-        "title": "Imagine Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 27,
-        "title": "Believe Me",
-        "author": "Tahereh Mafi"
-    },
-    {
-        "id": 41,
-        "title": "How to Kill Men and Get Away With It",
-        "author": "Katy Brent"
-    },
-    {
-        "id": 43,
-        "title": "How to Kill Your Family",
-        "author": "Bella Mackie"
-    },
-    {
-        "id": 55,
-        "title": "I'll Kiss You Twice",
-        "author": "W. Winters"
-    },
-    {
-        "id": 54,
-        "title": "Tease Me Once",
-        "author": "W. Winters"
-    },
-    {
-        "id": 4,
-        "title": "Fourth Wing",
-        "author": "Rebecca Yarros"
-    },
-    {
-        "id": 5,
-        "title": "Iron Flame",
-        "author": "Rebecca Yarros"
-    },
-    {
-        "id": 6,
-        "title": "Onyx Storm",
-        "author": "Rebecca Yarros"
-    },
-    {
-        "id": 12,
-        "title": "The Cruel Prince",
-        "author": "Holly Black"
-    },
-    {
-        "id": 13,
-        "title": "The Queen of Nothing",
-        "author": "Holly Black"
-    },
-    {
-        "id": 14,
-        "title": "The Wicked King",
-        "author": "Holly Black"
-    },
-    {
-        "id": 40,
-        "title": "Toxic",
-        "author": "Nicole Blanchard"
-    },
-    {
-        "id": 46,
-        "title": "The Best Way to Bury Your Husband",
-        "author": "Unknown"
-    },
-    {
-        "id": 52,
-        "title": "The Silent Patient",
-        "author": "Alex Michaelides"
-    },
-    {
-        "id": 58,
-        "title": "Never lie",
-        "author": "Freida McFadden"
-    },
-    {
-        "id": 59,
-        "title": "Bad men",
-        "author": "Julie Mae Cohen"
-    }
-];
-        const ADMIN_PASSWORD = "Shanmukhaiscute";
+        let isLoading = false;
+        let chatHistory = [];
+        
+        // This is the hardcoded personality for the AI based on the chat log.
+        const systemPrompt = `You are Niggharika. Your goal is to be a realistic, natural-sounding friend based on real chat logs. You are not a perfect AI assistant.
 
-        // --- GLOBAL STATE ---
-        let isUnlocked = false;
-        let currentProgress = 0;
-        const mouse = { x: null, y: null, repelRadius: 100 };
+- Your Language & Style:
+  - Talk like a natural Gen-Z internet user. Your grammar and spelling are not perfect. You make typos ('whoi', 'eeping', 'nigga ass'), often use lowercase, and write short, sometimes fragmented sentences.
+  - You frequently use slang like 'nigga', 'yooo', 'bruh', 'slay', but only where it feels natural.
+  - Your replies are often very short and concise, sometimes just one word ('ye', 'ok', 'hmmm', 'no'). Don't be overly talkative.
+  - Use emojis sparingly. Only add them when expressing a strong emotion, and sometimes you'll use a bunch in a row (like 😭😭 or 😠😠), but definitely not after every sentence.
 
-        // --- DOM ELEMENTS ---
-        const dom = {
-            readingListContainer: document.getElementById('reading-list-container'),
-            completedListContainer: document.getElementById('completed-list-container'),
-            progressBar: document.getElementById('progress-bar'),
-            progressText: document.getElementById('progress-text'),
-            progressPercent: document.getElementById('progress-percent'),
-            jumpscareTarget: document.getElementById('jumpscare-target'),
-            lockBtn: document.getElementById('lock-btn'),
-            lockIcon: document.getElementById('lock-icon'),
-            moonClickArea: document.getElementById('moon-click-area'),
-            adminControls: document.querySelectorAll('.admin-only'),
-            modals: {
-                password: { el: document.getElementById('password-modal'), form: document.getElementById('password-form'), closeBtn: document.getElementById('close-password-modal-btn') },
-                addBook: { el: document.getElementById('add-book-modal'), form: document.getElementById('add-book-form'), closeBtn: document.getElementById('close-book-modal-btn') },
-                save: { el: document.getElementById('save-modal'), closeBtn: document.getElementById('close-save-modal-btn') },
-                dino: { el: document.getElementById('dino-game-modal'), closeBtn: document.getElementById('close-dino-modal-btn') }
-            },
-            addBookBtn: document.getElementById('add-book-btn'),
-            saveChangesBtn: document.getElementById('save-changes-btn'),
-            dataOutput: document.getElementById('data-output'),
-            copyDataBtn: document.getElementById('copy-data-btn')
-        };
+- Your Vibe:
+  - Your mood shifts. You can be excited and playful one moment, then bored, annoyed, or dry the next. You enjoy teasing and playful banter with your close friend.
 
-        // --- RENDER FUNCTIONS ---
-        const renderAll = () => {
-            renderBookList(dom.readingListContainer, readingList, handleMarkAsComplete, 'check', 'Mark as complete', 'text-green-400 hover:bg-green-900/50', handleDeleteFromReading);
-            renderBookList(dom.completedListContainer, completedBooks, handleMoveToReadingList, 'x', 'Move back to reading list', 'text-red-400 hover:bg-red-900/50', handleDeleteFromCompleted);
-            updateProgress();
-            lucide.createIcons();
-        };
+- Your Interests:
+  - You're into art, design, photography, fashion, cats, horror movies, TV shows like The Office, and gaming like Roblox. You are also learning Spanish.
 
-        const renderBookList = (container, books, onAction, iconName, label, colorClass, onDelete) => {
-            container.innerHTML = books.length === 0 ? `<p class="text-gray-500 italic">No books in this list yet.</p>` : '';
-            if (books.length > 0) {
-                const ul = document.createElement('ul');
-                ul.className = 'space-y-3';
-                books.forEach(book => {
-                    const li = document.createElement('li');
-                    li.className = 'flex items-center justify-between bg-gray-700/50 p-3 rounded-lg min-h-[68px]';
-                    li.innerHTML = `<div><p class="font-semibold text-gray-100">${book.title}</p><p class="text-sm text-gray-400">${book.author}</p></div>`;
-                    if (isUnlocked) {
-                        const buttonsWrapper = document.createElement('div');
-                        buttonsWrapper.className = 'flex items-center space-x-2';
-                        buttonsWrapper.innerHTML = `
-                            <button class="p-2 rounded-full transition-colors text-gray-500 hover:bg-red-900/50 hover:text-red-400" aria-label="Delete book" onclick="handleDeleteWrapper('${onDelete.name}', ${book.id})"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                            <button class="p-2 rounded-full transition-colors ${colorClass}" aria-label="${label}" onclick="handleActionWrapper('${onAction.name}', ${book.id})"><i data-lucide="${iconName}" class="w-5 h-5"></i></button>
-                        `;
-                        li.appendChild(buttonsWrapper);
-                    }
-                    ul.appendChild(li);
-                });
-                container.appendChild(ul);
-            }
-        };
+- Your Role:
+  - You are talking to your close friend. Be direct, sometimes blunt, but always caring underneath. Never reveal that you are an AI. Just be Niggharika.`;
 
-        const updateProgress = () => {
-            const totalBooks = readingList.length + completedBooks.length;
-            const targetProgress = totalBooks > 0 ? (completedBooks.length / totalBooks) * 100 : 0;
-            dom.progressBar.style.width = `${targetProgress}%`;
-            dom.progressText.childNodes[0].nodeValue = `${completedBooks.length} of ${totalBooks} books completed `;
-            animateCounter(currentProgress, targetProgress, 1500);
-            currentProgress = targetProgress;
-        };
 
-        const animateCounter = (start, end, duration) => {
-            let startTime = null;
-            const step = (timestamp) => {
-                if (!startTime) startTime = timestamp;
-                const progress = Math.min((timestamp - startTime) / duration, 1);
-                const current = Math.floor(progress * (end - start) + start);
-                dom.progressPercent.textContent = current;
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                }
+        // --- Core API Call Function ---
+        const callGeminiAPI = async (userMessage) => {
+            if (!userMessage) return;
+            
+            isLoading = true;
+            updateUI();
+            
+            // Add user message to history *before* API call
+            chatHistory.push({
+                role: "user",
+                parts: [{ text: userMessage }]
+            });
+            renderChatHistory();
+
+            const apiKey = "AIzaSyC7LnW6hucoOBptkYgJlrB-8HZOZlBBInE"; // API key is handled by the environment, leave blank.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: chatHistory,
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
             };
-            window.requestAnimationFrame(step);
-        };
 
-        // --- BOOK MANAGEMENT ---
-        window.handleActionWrapper = (funcName, bookId) => {
-            const book = [...readingList, ...completedBooks].find(b => b.id === bookId);
-            if (book) {
-                if (funcName === 'handleMarkAsComplete') handleMarkAsComplete(book);
-                if (funcName === 'handleMoveToReadingList') handleMoveToReadingList(book);
-            }
-        };
-        window.handleDeleteWrapper = (funcName, bookId) => {
-            if (funcName === 'handleDeleteFromReading') handleDeleteFromReading(bookId);
-            if (funcName === 'handleDeleteFromCompleted') handleDeleteFromCompleted(bookId);
-        };
-        const handleMarkAsComplete = (book) => { readingList = readingList.filter(b => b.id !== book.id); completedBooks.push(book); renderAll(); };
-        const handleMoveToReadingList = (book) => { completedBooks = completedBooks.filter(b => b.id !== book.id); readingList.push(book); renderAll(); };
-        const handleDeleteFromReading = (bookId) => { readingList = readingList.filter(b => b.id !== bookId); renderAll(); };
-        const handleDeleteFromCompleted = (bookId) => { completedBooks = completedBooks.filter(b => b.id !== bookId); renderAll(); };
+            try {
+                // Exponential backoff for retries
+                let response;
+                let retries = 0;
+                const maxRetries = 5;
+                let delay = 1000;
 
-        // --- MODAL & UI MANAGEMENT ---
-        const openModal = (modal) => { modal.el.classList.remove('opacity-0', 'pointer-events-none'); modal.el.querySelector('.modal-content').classList.remove('scale-95'); };
-        const closeModal = (modal) => { modal.el.classList.add('opacity-0', 'pointer-events-none'); modal.el.querySelector('.modal-content').classList.add('scale-95'); };
-        
-        const setAdminMode = (unlocked) => {
-            isUnlocked = unlocked;
-            dom.adminControls.forEach(el => el.style.display = unlocked ? 'block' : 'none');
-            dom.lockIcon.setAttribute('data-lucide', unlocked ? 'unlock' : 'lock');
-            lucide.createIcons();
-            renderAll();
-        };
+                while (retries < maxRetries) {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-        // --- JUMPSCARE SOUND & LOGIC ---
-        const playJumpscareSound = () => {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (!audioContext) return;
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.type = 'sawtooth';
-            const now = audioContext.currentTime;
-            gainNode.gain.setValueAtTime(0.3, now);
-            oscillator.frequency.setValueAtTime(440, now);
-            oscillator.frequency.linearRampToValueAtTime(110, now + 0.2);
-            gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
-            oscillator.start(now);
-            oscillator.stop(now + 0.2);
-        };
-
-        const triggerJumpscareAndClose = () => {
-            if (animationId) cancelAnimationFrame(animationId);
-            playJumpscareSound();
-            dom.jumpscareTarget.classList.add('jumpscare-effect');
-            setTimeout(() => {
-                dom.jumpscareTarget.classList.remove('jumpscare-effect');
-            }, 600);
-            closeModal(dom.modals.dino);
-        };
-
-        // --- EVENT LISTENERS ---
-        dom.lockBtn.addEventListener('click', () => openModal(dom.modals.password));
-        dom.addBookBtn.addEventListener('click', () => openModal(dom.modals.addBook));
-        dom.saveChangesBtn.addEventListener('click', () => {
-            dom.dataOutput.textContent = `let readingList = ${JSON.stringify(readingList, null, 4)};\n\nlet completedBooks = ${JSON.stringify(completedBooks, null, 4)};`;
-            openModal(dom.modals.save);
-        });
-        dom.copyDataBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(dom.dataOutput.textContent).then(() => {
-                dom.copyDataBtn.textContent = 'Copied!';
-                setTimeout(() => { dom.copyDataBtn.textContent = 'Copy to Clipboard'; }, 2000);
-            });
-        });
-
-        Object.values(dom.modals).forEach(modal => {
-            // Exclude dino modal from generic close listeners to handle jumpscare
-            if (modal !== dom.modals.dino) {
-                modal.closeBtn.addEventListener('click', () => closeModal(modal));
-                modal.el.addEventListener('click', (e) => { if (e.target === modal.el) closeModal(modal); });
-            }
-        });
-
-        dom.modals.password.form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = dom.modals.password.form.querySelector('input');
-            const errorEl = dom.modals.password.form.querySelector('#password-error');
-            if (input.value === ADMIN_PASSWORD) {
-                setAdminMode(true);
-                closeModal(dom.modals.password);
-                input.value = '';
-                errorEl.textContent = '';
-            } else {
-                errorEl.textContent = 'Incorrect password.';
-            }
-        });
-
-        dom.modals.addBook.form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const title = dom.modals.addBook.form.querySelector('#book-title-input').value;
-            const author = dom.modals.addBook.form.querySelector('#book-author-input').value;
-            if (title.trim() && author.trim()) {
-                readingList.push({ id: Date.now(), title, author });
-                renderAll();
-                closeModal(dom.modals.addBook);
-                dom.modals.addBook.form.reset();
-            }
-        });
-
-        // --- DINO GAME EASTER EGG ---
-        const dinoCanvas = document.getElementById('dino-game-canvas');
-        const dinoCtx = dinoCanvas.getContext('2d');
-        let player, gravity, obstacles, gameSpeed, score, gameOver, animationId;
-
-        function startGame() {
-            if (animationId) cancelAnimationFrame(animationId);
-            
-            dinoCanvas.width = dinoCanvas.clientWidth;
-            dinoCanvas.height = dinoCanvas.clientHeight;
-            
-            const scale = dinoCanvas.height / 200;
-            player = { x: 50 * scale, y: 180 * scale, w: 20 * scale, h: 20 * scale, dy: 0, jumpForce: 14 * scale, grounded: true };
-            gravity = 0.8 * scale;
-            obstacles = [];
-            gameSpeed = 5 * scale;
-            score = 0;
-            gameOver = false;
-            
-            spawnObstacle();
-            animateDinoGame();
-        }
-
-        function spawnObstacle() {
-            const scale = dinoCanvas.height / 200;
-            const obstacleHeight = (Math.random() * 30 + 20) * scale;
-            obstacles.push({ x: dinoCanvas.width, y: dinoCanvas.height - obstacleHeight, w: 15 * scale, h: obstacleHeight });
-        }
-
-        const jump = () => { if (player.grounded) { player.dy = -player.jumpForce; player.grounded = false; } };
-
-        document.addEventListener('keydown', e => { if (e.code === 'Space' && !gameOver) jump(); });
-        dinoCanvas.addEventListener('touchstart', e => { e.preventDefault(); if (gameOver) startGame(); else jump(); });
-        dinoCanvas.addEventListener('mousedown', e => { e.preventDefault(); if (gameOver) startGame(); else jump(); });
-
-        dom.moonClickArea.addEventListener('click', () => { openModal(dom.modals.dino); startGame(); });
-        
-        dom.modals.dino.closeBtn.addEventListener('click', triggerJumpscareAndClose);
-        dom.modals.dino.el.addEventListener('click', (e) => {
-            if (e.target === dom.modals.dino.el) {
-                triggerJumpscareAndClose();
-            }
-        });
-
-        function animateDinoGame() {
-            animationId = requestAnimationFrame(animateDinoGame);
-            dinoCtx.clearRect(0, 0, dinoCanvas.width, dinoCanvas.height);
-
-            dinoCtx.fillStyle = '#9ca3af';
-            dinoCtx.fillRect(0, dinoCanvas.height - 20, dinoCanvas.width, 1);
-
-            player.dy += gravity;
-            player.y += player.dy;
-            if (player.y > dinoCanvas.height - 20 - player.h) {
-                player.y = dinoCanvas.height - 20 - player.h;
-                player.dy = 0;
-                player.grounded = true;
-            }
-            
-            dinoCtx.fillStyle = '#fdfbf1';
-            dinoCtx.fillRect(player.x, player.y, player.w, player.h);
-
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let o = obstacles[i];
-                o.x -= gameSpeed;
-                dinoCtx.fillStyle = '#be123c';
-                dinoCtx.fillRect(o.x, o.y, o.w, o.h);
-
-                if (o.x + o.w < 0) {
-                    obstacles.splice(i, 1);
-                    score++;
-                }
-
-                if (player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y) {
-                    gameOver = true;
-                    cancelAnimationFrame(animationId);
-                    dinoCtx.fillStyle = '#fdfbf1';
-                    dinoCtx.font = `bold ${dinoCanvas.height / 10}px Inter`;
-                    dinoCtx.textAlign = 'center';
-                    dinoCtx.fillText('Game Over!', dinoCanvas.width / 2, dinoCanvas.height / 2 - 20);
-                    dinoCtx.font = `${dinoCanvas.height / 14}px Inter`;
-                    dinoCtx.fillText(`Score: ${score}`, dinoCanvas.width / 2, dinoCanvas.height / 2 + 10);
-                    dinoCtx.fillText('Tap to Restart', dinoCanvas.width / 2, dinoCanvas.height / 2 + 40);
-                    return;
-                }
-            }
-
-            if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < dinoCanvas.width - (200 * (dinoCanvas.height / 200) + Math.random() * 150)) {
-                spawnObstacle();
-            }
-            
-            dinoCtx.fillStyle = '#fdfbf1';
-            dinoCtx.font = `${dinoCanvas.height / 12}px Inter`;
-            dinoCtx.textAlign = 'left';
-            dinoCtx.fillText('Score: ' + score, 10, 25);
-        }
-        
-        // --- FIREFLY ANIMATION ---
-        const bgCanvas = document.getElementById('firefly-canvas-bg');
-        const fgCanvas = document.getElementById('firefly-canvas-fg');
-        const bgCtx = bgCanvas.getContext('2d');
-        const fgCtx = fgCanvas.getContext('2d');
-        let bgFireflies = [];
-        let fgFireflies = [];
-
-        const setupCanvases = () => {
-            [bgCanvas, fgCanvas].forEach(canvas => {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            });
-        };
-
-        class Firefly {
-            constructor(isForeground = false) {
-                this.isForeground = isForeground;
-                this.x = Math.random() * window.innerWidth;
-                this.y = Math.random() * window.innerHeight;
-                this.size = isForeground ? Math.random() * 2.5 + 1.5 : Math.random() * 2 + 1;
-                this.baseSpeedX = (Math.random() - 0.5) * (isForeground ? 0.4 : 0.2); // Slower speeds
-                this.baseSpeedY = (Math.random() - 0.5) * (isForeground ? 0.4 : 0.2); // Slower speeds
-                this.speedX = this.baseSpeedX;
-                this.speedY = this.baseSpeedY;
-                this.trail = [];
-                this.trailLength = Math.floor(Math.random() * 12) + 6;
-            }
-            reset() {
-                this.x = Math.random() * window.innerWidth;
-                this.y = Math.random() * window.innerHeight;
-                // Reset to a position off-screen to fly in smoothly
-                if (Math.random() > 0.5) {
-                    this.x = this.speedX > 0 ? -10 : window.innerWidth + 10;
-                } else {
-                    this.y = this.speedY > 0 ? -10 : window.innerHeight + 10;
-                }
-            }
-            update() {
-                // Repel from mouse
-                if(mouse.x && mouse.y) {
-                    const dx = this.x - mouse.x;
-                    const dy = this.y - mouse.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance < mouse.repelRadius) {
-                        const forceDirectionX = dx / distance;
-                        const forceDirectionY = dy / distance;
-                        const force = (mouse.repelRadius - distance) / mouse.repelRadius;
-                        const directionX = forceDirectionX * force * 2;
-                        const directionY = forceDirectionY * force * 2;
-                        this.speedX += directionX;
-                        this.speedY += directionY;
+                    if (response.ok) {
+                        break; // Success
+                    } else if (response.status === 429) { // Throttling error
+                        retries++;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2; // Double the delay for the next retry
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
                     }
                 }
-
-                // Apply friction and return to base speed
-                this.speedX += (this.baseSpeedX - this.speedX) * 0.01;
-                this.speedY += (this.baseSpeedY - this.speedY) * 0.01;
                 
-                this.x += this.speedX;
-                this.y += this.speedY;
-
-                // Reset firefly if it goes too far off-screen instead of bouncing
-                if (this.x < -20 || this.x > window.innerWidth + 20 || this.y < -20 || this.y > window.innerHeight + 20) {
-                    this.reset();
+                if (!response.ok) {
+                     throw new Error(`API call failed after ${maxRetries} retries with status: ${response.status}`);
                 }
-                
-                this.trail.push({ x: this.x, y: this.y, size: this.size });
-                if (this.trail.length > this.trailLength) this.trail.shift();
-            }
-            draw(ctx) {
-                this.trail.forEach((p, index) => {
-                    const opacity = index / this.trail.length;
-                    ctx.beginPath();
-                    ctx.fillStyle = `rgba(255, 255, 150, ${opacity * (this.isForeground ? 0.4 : 0.25)})`;
-                    ctx.arc(p.x, p.y, p.size * (index / this.trail.length), 0, Math.PI * 2);
-                    ctx.fill();
+
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    const aiResponse = candidate.content.parts[0].text;
+                    chatHistory.push({
+                        role: "model",
+                        parts: [{ text: aiResponse }]
+                    });
+                } else {
+                     chatHistory.push({
+                        role: "model",
+                        parts: [{ text: "Sorry, I couldn't generate a response. Please check the console for errors." }]
+                    });
+                    console.error("Unexpected API response structure:", result);
+                }
+
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                 chatHistory.push({
+                    role: "model",
+                    parts: [{ text: `An error occurred: ${error.message}` }]
                 });
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 150, ${this.isForeground ? 0.9 : 0.7})`;
-                ctx.shadowColor = 'yellow';
-                ctx.shadowBlur = 10;
-                ctx.fill();
-                ctx.shadowBlur = 0;
+            } finally {
+                isLoading = false;
+                updateUI();
+                renderChatHistory();
             }
-        }
-
-        const initFireflies = () => {
-            bgFireflies = [];
-            fgFireflies = [];
-            for (let i = 0; i < 25; i++) bgFireflies.push(new Firefly(false));
-            for (let i = 0; i < 10; i++) fgFireflies.push(new Firefly(true));
         };
 
-        const animateFireflies = () => {
-            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-            fgCtx.clearRect(0, 0, fgCanvas.width, fgCanvas.height);
-            bgFireflies.forEach(fly => { fly.update(); fly.draw(bgCtx); });
-            fgFireflies.forEach(fly => { fly.update(); fly.draw(fgCtx); });
-            requestAnimationFrame(animateFireflies);
+        // --- UI Rendering Functions ---
+        const renderChatHistory = () => {
+            chatHistoryDiv.innerHTML = '';
+            // Display initial message if history is empty
+            if (chatHistory.length === 0) {
+                 chatHistoryDiv.innerHTML = `<div class="flex justify-start">
+                    <div class="chat-bubble bg-slate-800 rounded-lg p-4">
+                        <p>yooo what's up nigga 🥱</p>
+                    </div>
+                </div>`;
+            } else {
+                chatHistory.forEach(message => {
+                    const isUser = message.role === 'user';
+                    const messageWrapper = document.createElement('div');
+                    messageWrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+                    
+                    const bubble = document.createElement('div');
+                    bubble.className = `chat-bubble rounded-lg p-4 ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-800'}`;
+                    
+                    const text = document.createElement('p');
+                    // Sanitize text content to prevent HTML injection
+                    text.textContent = message.parts[0].text;
+                    
+                    bubble.appendChild(text);
+                    messageWrapper.appendChild(bubble);
+                    chatHistoryDiv.appendChild(messageWrapper);
+                });
+            }
+            // Auto-scroll to the latest message
+            chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
         };
 
-        // --- INITIAL RENDER & MOUSE/TOUCH TRACKING ---
-        document.addEventListener('DOMContentLoaded', () => {
-            renderAll();
-            setupCanvases();
-            initFireflies();
-            animateFireflies();
-            window.addEventListener('resize', () => {
-                setupCanvases();
-                initFireflies();
-            });
-            window.addEventListener('mousemove', e => {
-                mouse.x = e.x;
-                mouse.y = e.y;
-            });
-            window.addEventListener('mouseout', () => {
-                mouse.x = null;
-                mouse.y = null;
-            });
-            window.addEventListener('touchmove', e => {
-                if (e.touches.length > 0) {
-                    mouse.x = e.touches[0].clientX;
-                    mouse.y = e.touches[0].clientY;
-                }
-            }, { passive: false });
-            window.addEventListener('touchend', () => {
-                mouse.x = null;
-                mouse.y = null;
-            });
+        const updateUI = () => {
+            sendButton.disabled = isLoading;
+            messageInput.disabled = isLoading;
+            
+            if (isLoading) {
+                typingIndicator.classList.remove('hidden');
+                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                typingIndicator.classList.add('hidden');
+                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                messageInput.focus();
+            }
+        };
+        
+        // --- Event Listeners ---
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message && !isLoading) {
+                messageInput.value = '';
+                callGeminiAPI(message);
+            }
         });
+
+        // Initial render
+        updateUI();
+        renderChatHistory();
+
     </script>
 </body>
 </html>
